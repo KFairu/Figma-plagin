@@ -1,0 +1,19 @@
+{
+  "name": "3D Reveal Pro",
+  "id": "REPLACE_WITH_YOUR_PLUGIN_ID",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "capabilities": [],
+  "enableProposedApi": false,
+  "documentAccess": "dynamic-page",
+  "editorType": [
+    "figma"
+  ],
+  "networkAccess": {
+    "allowedDomains": [
+      "http://localhost:5000"
+    ],
+    "reasoning": "Plugin sends frame images to a local depth map server (Python/Flask on port 5000). All processing is done locally — no data leaves the user's machine."
+  }
+}

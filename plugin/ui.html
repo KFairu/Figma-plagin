@@ -1,0 +1,1971 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Reveal Pro</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+
+:root {
+  --bg: #F2F2EE;
+  --panel-bg: #FFFFFF;
+  --border: #E4E4DF;
+  --border-light: #EDEDEA;
+  --accent: #1C1C1A;
+  --muted: #9A9A92;
+  --muted2: #C0C0B8;
+  --tag-bg: #EEEEEB;
+  --input-bg: #F5F5F2;
+  --slider-track: #efefef;
+  --white: #FFFFFF;
+  --panel-w: 400px;
+  --danger: #C03636;
+}
+
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+
+html,body{
+  width:100%;height:100%;
+  background:var(--bg);
+  font-family:'Inter',system-ui,sans-serif;
+  color:var(--accent);
+  overflow:hidden;
+}
+
+/* ══ SHELL — flat, no inner wrapper ══ */
+#app-shell{
+  display:flex;
+  width:100vw;height:100vh;
+  background:var(--bg);
+}
+
+/* ══ CANVAS SIDE ══ */
+#canvas-area{
+  flex:1;min-width:0;height:100%;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  padding:0;
+  position:relative;
+  background:var(--bg);
+  overflow:hidden;
+}
+
+#canvas-wrap{
+  flex:1;min-height:0;width:100%;
+  display:flex;align-items:center;justify-content:center;
+  position:relative;
+  overflow:hidden; /* clips zoom overflow - no grey bleed */
+  /* subtle inset shadow gives depth without grey bars */
+}
+
+/* zoom-bar needs its own bottom padding area */
+#canvas-area > #zoom-bar {
+  margin-bottom:16px;
+}
+
+#glcanvas{
+  max-width:100%;max-height:100%;
+  border-radius:10px;
+  box-shadow:0 6px 40px rgba(0,0,0,.13),0 1px 4px rgba(0,0,0,.06);
+  transform-origin:center center;
+  transition:transform .12s;
+  position:relative;
+  z-index:0;
+  /* When zoomed beyond 100%, canvas may be larger than wrap.
+     overflow:hidden on #canvas-wrap already clips it.
+     We don't need extra padding that would show as grey. */
+}
+
+/* ══ ZOOM BAR ══ */
+#zoom-bar{
+  display:flex;align-items:center;
+  background:rgba(255,255,255,.9);backdrop-filter:blur(10px);
+  border:1px solid var(--border);border-radius:100px;
+  padding:4px 6px;flex-shrink:0;
+  margin:10px 0 14px; /* space above and below zoom bar */
+  box-shadow:0 2px 8px rgba(0,0,0,.07);
+}
+#zoom-bar button{
+  width:28px;height:28px;border:none;background:transparent;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;border-radius:50%;
+  color:var(--accent);transition:background .12s;flex-shrink:0;
+}
+#zoom-bar button:hover{background:var(--tag-bg);}
+#zoom-label{
+  font-size:11px;font-family:'Inter',system-ui,sans-serif;
+  color:var(--muted);min-width:40px;text-align:center;
+}
+.zoom-divider{width:1px;height:14px;background:var(--border);margin:0 2px;}
+
+/* ══ PANEL ══ */
+#settings-panel{
+  width:var(--panel-w);
+  min-width:300px;max-width:560px;
+  height:100%;
+  display:flex;flex-direction:column;
+  overflow:hidden;
+  position:relative;
+  flex-shrink:0;
+  z-index:10;
+  background:transparent; /* gap between cards shows canvas bg */
+}
+
+#panel-resize-handle{
+  position:absolute;left:0;top:0;bottom:0;width:5px;
+  cursor:default;z-index:50; /* resize disabled */
+}
+
+.panel-header{
+  padding:18px 18px 14px;
+  flex-shrink:0;
+  background:transparent;
+}
+.panel-header h1{font-size:14px;font-weight:600;letter-spacing:-.015em;}
+.panel-header p{font-size:11px;color:var(--muted);margin-top:2px;}
+
+#panel-scroll{flex:1;overflow-y:auto;padding:10px 12px 12px;background:transparent;}
+#panel-scroll::-webkit-scrollbar{width:3px;}
+#panel-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:10px;}
+
+/* ══ SECTION BLOCKS ══ */
+.sec-block{
+  background:var(--white);
+  border:1px solid var(--border);
+  border-radius:12px;
+  margin-bottom:6px;
+  box-shadow:0 1px 3px rgba(0,0,0,.04);
+}
+.sec-head{
+  display:flex;align-items:center;gap:10px;
+  padding:12px 14px 12px 12px;
+}
+.sec-icon{
+  width:28px;height:28px;background:var(--tag-bg);
+  border-radius:7px;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.sec-title-row{display:flex;align-items:center;gap:7px;flex:1;min-width:0;}
+.sec-label{font-size:12px;font-weight:600;}
+
+.head-toggle{
+  width:34px;height:19px;background:var(--slider-track);
+  border-radius:10px;position:relative;cursor:pointer;
+  transition:background .2s;flex-shrink:0;
+}
+.head-toggle.on{background:var(--accent);}
+.head-toggle::after{
+  content:'';position:absolute;top:2.5px;left:2.5px;
+  width:14px;height:14px;background:white;border-radius:50%;
+  transition:transform .18s;box-shadow:0 1px 3px rgba(0,0,0,.2);
+}
+.head-toggle.on::after{transform:translateX(15px);}
+
+.sec-body{padding:0 14px 16px;border-top:1px solid var(--border-light);}
+.sec-body.disabled{opacity:.38;pointer-events:none;}
+
+/* ══ TOOLTIP ══ */
+.info-hint{position:relative;display:flex;align-items:center;}
+.info-hint-trigger{
+  width:16px;height:16px;border-radius:50%;background:var(--tag-bg);
+  display:flex;align-items:center;justify-content:center;cursor:default;flex-shrink:0;
+}
+.info-hint:hover .info-tooltip{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0);}
+.info-tooltip{
+  position:absolute;bottom:calc(100% + 12px);left:50%;
+  transform:translateX(-50%) translateY(4px);
+  background:var(--accent);color:white;
+  font-size:10.5px;line-height:1.55;
+  padding:9px 12px;border-radius:8px;width:210px;
+  opacity:0;pointer-events:none;
+  transition:opacity .18s,transform .18s;
+  z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.18);
+}
+.info-tooltip::after{
+  content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);
+  border:5px solid transparent;border-top-color:var(--accent);
+}
+
+/* ══ FORM ══ */
+.field-label{
+  font-size:10px;font-weight:600;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.06em;
+  margin:16px 0 8px;
+}
+.tag-row{display:flex;gap:5px;flex-wrap:wrap;}
+.tag{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  padding:8px 14px;border-radius:10px;
+  background:white;
+  font-size:11.5px;font-weight:500;cursor:pointer;color:#6b6b63;
+  border:1.5px solid var(--border);
+  transition:all .14s;line-height:1;
+  box-shadow:0 1px 2px rgba(0,0,0,.04);
+}
+.tag:hover{border-color:var(--muted2);color:var(--accent);}
+.tag.active{
+  background:var(--accent);color:white;
+  border-color:var(--accent);
+  box-shadow:0 2px 6px rgba(28,28,26,.18);
+}
+.tag svg{flex-shrink:0;}
+
+.toggle-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:4px 0;margin:16px 0 4px;
+}
+.toggle-label{font-size:12px;font-weight:500;}
+.toggle{
+  width:34px;height:19px;background:var(--slider-track);
+  border-radius:10px;position:relative;cursor:pointer;
+  transition:background .2s;flex-shrink:0;
+}
+.toggle.on{background:var(--accent);}
+.toggle::after{
+  content:'';position:absolute;top:2.5px;left:2.5px;
+  width:14px;height:14px;background:white;border-radius:50%;
+  transition:transform .18s;box-shadow:0 1px 3px rgba(0,0,0,.2);
+}
+.toggle.on::after{transform:translateX(15px);}
+
+.control-group{margin-top:16px;}
+.ctrl-label{
+  display:flex;justify-content:space-between;align-items:baseline;
+  font-size:10px;font-weight:600;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;
+}
+.ctrl-value{font-family:'Inter',system-ui,sans-serif;color:var(--accent);font-size:10px;}
+
+/* ── Slider with progress fill ── */
+.slider-wrap{position:relative;width:100%;height:18px;display:flex;align-items:center;}
+input[type="range"]{
+  width:100%;height:4px;
+  border-radius:2px;appearance:none;outline:none;cursor:pointer;
+  background:transparent; /* background set via JS gradient */
+  position:relative;z-index:1;
+}
+input[type="range"]::-webkit-slider-thumb{
+  appearance:none;width:15px;height:15px;background:var(--accent);
+  border-radius:50%;cursor:pointer;
+  border:2.5px solid white;box-shadow:0 1px 4px rgba(0,0,0,.24);
+}
+/* Filled track — JS sets --fill as % matching thumb position exactly */
+input[type="range"].has-fill{
+  background:linear-gradient(to right,
+    #BEBEBE 0%,
+    #BEBEBE var(--fill,0%),
+    #EBEBEB var(--fill,0%),
+    #EBEBEB 100%
+  );
+}
+
+/* ══ COLOR ROW — swatch + hex ══ */
+.color-row{display:flex;gap:10px;margin-top:16px;}
+.color-col{flex:1;min-width:0;}
+.color-col-label{
+  font-size:10px;font-weight:600;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px;
+}
+.color-swatch-wrap{display:flex;align-items:center;gap:6px;}
+.color-swatch{
+  width:32px;height:32px;border-radius:7px;border:1.5px solid var(--border);
+  cursor:pointer;flex-shrink:0;transition:transform .12s;
+  position:relative;
+}
+.color-swatch:hover{transform:scale(1.06);}
+.color-swatch input[type="color"]{
+  position:absolute;inset:0;opacity:0;cursor:pointer;
+  width:100%;height:100%;border:none;padding:0;
+}
+.hex-input{
+  flex:1;min-width:0;height:32px;
+  background:var(--input-bg);border:1px solid var(--border);border-radius:7px;
+  color:var(--accent);font-family:'Inter',system-ui,sans-serif;font-size:11px;
+  text-align:center;outline:none;
+}
+.hex-input:focus{border-color:var(--accent);background:white;}
+
+/* ══ CUSTOM COLOR PICKER POPUP ══ */
+.cp-popup{
+  position:fixed;
+  background:white;
+  border-radius:10px;
+  border:1px solid var(--border);
+  box-shadow:0 8px 32px rgba(0,0,0,.18);
+  width:230px;
+  z-index:99999;
+  overflow:hidden;
+  display:none;
+  flex-direction:column;
+  user-select:none;
+}
+.cp-popup.open{display:flex;}
+
+.cp-gradient{
+  width:100%;
+  height:180px; /* Увеличено на 30px */
+  position:relative;
+  cursor:crosshair;
+  flex-shrink:0;
+}
+.cp-gradient-sat{
+  position:absolute;inset:0;
+  background:linear-gradient(to right,#fff 0%,var(--cp-hue,#f00) 100%);
+}
+.cp-gradient-dark{
+  position:absolute;inset:0;
+  background:linear-gradient(to bottom,transparent 0%,#000 100%);
+}
+.cp-cursor{
+  position:absolute;width:12px;height:12px;
+  border-radius:50%;border:2px solid white;
+  box-shadow:0 0 2px rgba(0,0,0,.5);
+  transform:translate(-50%,-50%);
+  pointer-events:none;
+}
+
+.cp-controls {
+  padding: 12px;
+}
+.cp-top-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.cp-sliders {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.cp-hue-bar {
+  width: 100%;
+  height: 10px;
+  border-radius: 10px;
+  position: relative;
+  cursor: pointer;
+  background: linear-gradient(90deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+}
+.cp-bar-thumb {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2.5px solid white;
+  background: transparent;
+  box-shadow: 0 1px 4px rgba(0,0,0,.3);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.cp-bottom-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  width: 100%;
+}
+.cp-mode-wrap {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  height: 26px;
+  position: relative;
+  background: transparent;
+  width: 62px;
+  flex-shrink: 0;
+}
+.cp-mode-wrap:hover {
+  background: var(--tag-bg);
+}
+.cp-mode-select {
+  appearance: none;
+  background: transparent;
+  border: none;
+  padding: 0 16px 0 8px;
+  width: 100%;
+  height: 100%;
+  font-size: 11px;
+  color: #333;
+  cursor: pointer;
+  outline: none;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+.cp-mode-wrap svg {
+  position: absolute;
+  right: 6px;
+  pointer-events: none;
+  color: var(--muted);
+}
+.cp-color-val {
+  flex: 1;
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  text-align: left;
+  padding-left: 8px;
+  font-size: 11px;
+  outline: none;
+  color: var(--accent);
+  font-family: 'Inter', system-ui, sans-serif;
+  min-width: 0;
+}
+.cp-color-val:focus {
+  border-color: var(--accent);
+}
+
+/* ══ ACTION BTNS ══ */
+.action-row{display:flex;gap:6px;margin-top:16px;}
+.action-btn{
+  flex:1;height:34px;border-radius:8px;
+  font-size:11px;font-weight:500;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:5px;
+  font-family:'Inter',system-ui,sans-serif;border:1px solid var(--border);
+  transition:all .13s;
+}
+.action-btn.surprise{background:var(--tag-bg);color:var(--accent);}
+.action-btn.surprise:hover{background:var(--accent);color:white;border-color:transparent;}
+.action-btn.reset{background:white;color:var(--muted);}
+.action-btn.reset:hover{background:#F5F5F3;color:var(--accent);}
+
+/* ══ TRAJ CARDS (3-col) ══ */
+.traj-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px;}
+.traj-card{
+  border:1.5px solid var(--border);border-radius:9px;
+  padding:8px 6px 7px;cursor:pointer;background:white;transition:all .14s;
+}
+.traj-card:hover{border-color:var(--muted2);}
+.traj-card.active{border-color:var(--accent);background:#F8F8F6;}
+.traj-preview{width:100%;height:36px;display:block;margin-bottom:5px;}
+.traj-label{font-size:9.5px;font-weight:600;color:var(--accent);text-align:center;}
+
+/* ══ UPLOAD / PREVIEW ══ */
+.upload-btn{
+  width:100%;height:36px;background:var(--input-bg);
+  border:1.5px dashed var(--border);border-radius:8px;
+  color:var(--muted);font-size:11.5px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  transition:all .13s;margin-top:8px;
+}
+.upload-btn:hover{border-color:var(--accent);color:var(--accent);}
+.video-upload-placeholder{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  color:var(--muted);font-size:9px;font-weight:600;letter-spacing:.04em;
+  cursor:pointer;width:100%;height:100%;
+}
+.video-upload-placeholder span{text-transform:uppercase;}
+.preview-thumb.has-video{cursor:pointer;}
+.preview-thumb.has-video:hover::after{
+  content:'Заменить';position:absolute;inset:0;
+  background:rgba(0,0,0,.45);color:white;
+  display:flex;align-items:center;justify-content:center;
+  font-size:9px;font-weight:600;border-radius:8px;
+}
+
+.preview-row{display:flex;gap:8px;margin-top:12px;}
+.preview-thumb{
+  flex:1;aspect-ratio:4/3;background:var(--tag-bg);
+  border-radius:9px;border:1px solid var(--border);
+  overflow:hidden;display:flex;align-items:center;justify-content:center;
+  position:relative;
+}
+.preview-thumb canvas{width:100%;height:100%;object-fit:cover;}
+.preview-thumb-label{
+  position:absolute;bottom:5px;left:5px;
+  background:rgba(0,0,0,.5);color:white;
+  font-size:8px;font-weight:700;padding:2px 5px;
+  border-radius:4px;letter-spacing:.06em;text-transform:uppercase;
+}
+.alpha-badge{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:3px 8px;border-radius:20px;
+  font-size:10px;font-weight:600;margin-top:8px;
+}
+.alpha-badge.yes{background:#E6F4E0;color:#3A7A2E;}
+.alpha-badge.no{background:#F0F0EE;color:#888880;}
+
+/* ══ TIME CHIPS ══ */
+.time-chips{display:flex;gap:5px;}
+.time-chip{
+  display:inline-flex;align-items:center;justify-content:center;
+  padding:8px 14px;border-radius:10px;
+  background:white;
+  font-size:11.5px;font-weight:500;cursor:pointer;color:#6b6b63;
+  border:1.5px solid var(--border);
+  transition:all .14s;line-height:1;
+  box-shadow:0 1px 2px rgba(0,0,0,.04);
+}
+.time-chip:hover{border-color:var(--muted2);color:var(--accent);}
+.time-chip.active{
+  background:var(--accent);color:white;
+  border-color:var(--accent);
+  box-shadow:0 2px 6px rgba(28,28,26,.18);
+}
+.custom-time-row{display:flex;align-items:center;gap:8px;margin-top:10px;}
+.custom-time-row input[type="number"]{
+  width:64px;height:32px;background:var(--input-bg);
+  border:1px solid var(--border);border-radius:7px;
+  color:var(--accent);font-size:13px;text-align:center;outline:none;
+  font-family:'Inter',system-ui,sans-serif;
+}
+.custom-time-label{font-size:11px;color:var(--muted);}
+.section-div{height:1px;background:var(--border-light);margin:16px 0 0;}
+.sub-section{display:none;}
+.sub-section.visible{display:block;}
+
+/* ══ FOOTER ══ */
+.panel-footer{padding:10px 10px 12px; flex-shrink:0; background:transparent;}
+.footer-row{display:flex;gap:6px;}
+#start-btn{
+  flex:1;height:44px;background:var(--accent);color:white;
+  border:none;border-radius:10px;font-size:13px;font-weight:600;
+  cursor:pointer;font-family:'Inter',system-ui,sans-serif;
+  transition:opacity .15s;display:flex;align-items:center;justify-content:center;gap:7px;
+}
+#start-btn:hover:not(:disabled){opacity:.82;}
+#start-btn.recording{background:var(--danger);animation:pulse-rec 1.5s infinite;}
+@keyframes pulse-rec{0%,100%{box-shadow:0 0 0 0 rgba(192,54,54,0);}50%{box-shadow:0 0 0 5px rgba(192,54,54,.2);}}
+#cancel-btn{
+  height:44px;width:44px;background:white;color:var(--muted);
+  border:1px solid var(--border);border-radius:10px;
+  cursor:pointer;display:none;align-items:center;justify-content:center;
+  transition:all .12s;flex-shrink:0;
+}
+#cancel-btn.visible{display:flex;}
+#cancel-btn:hover{background:#fff0f0;border-color:#F0B0B0;color:var(--danger);}
+
+/* ══ LOADER / ERROR ══ */
+#loader{
+  position:absolute;inset:0;background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:100;transition:opacity .4s;
+}
+.loader-spinner{
+  width:32px;height:32px;border:2px solid var(--border);
+  border-top-color:var(--accent);border-radius:50%;
+  animation:spin .75s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+#loader-text{margin-top:12px;font-size:10px;font-weight:500;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;}
+#error-msg{
+  position:absolute;inset:0;background:var(--bg);
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  z-index:200;padding:40px;
+}
+.err-box{background:white;border:1px solid #EDD0D0;border-radius:12px;padding:28px 32px;max-width:400px;text-align:center;}
+.err-title{font-size:13px;font-weight:600;color:#B83232;margin-bottom:10px;}
+.err-body{font-size:11px;color:var(--muted);line-height:1.7;}
+.err-body code{background:#f5f5f2;border-radius:4px;padding:2px 6px;font-size:10.5px;color:#333;font-family:monospace;}
+.err-steps{text-align:left;margin:12px 0 0;padding:0 0 0 16px;font-size:11px;color:var(--muted);line-height:2;}
+.err-btns{margin-top:18px;display:flex;gap:8px;justify-content:center;}
+.err-close{padding:8px 18px;background:var(--accent);color:white;border:none;border-radius:7px;cursor:pointer;font-size:11px;font-family:'Inter',system-ui,sans-serif;}
+.err-retry{padding:8px 18px;background:transparent;color:var(--accent);border:1px solid var(--border);border-radius:7px;cursor:pointer;font-size:11px;font-family:'Inter',system-ui,sans-serif;}
+</style>
+</head>
+<body>
+
+<!-- ════ CUSTOM COLOR PICKER POPUP ════ -->
+<div class="cp-popup" id="cp-popup">
+  <div class="cp-gradient" id="cp-gradient">
+    <div class="cp-gradient-sat" id="cp-sat"></div>
+    <div class="cp-gradient-dark"></div>
+    <div class="cp-cursor" id="cp-cursor"></div>
+  </div>
+  <div class="cp-controls">
+    <div class="cp-top-row">
+      <div class="cp-sliders">
+        <div class="cp-hue-bar" id="cp-hue-bar">
+          <div class="cp-bar-thumb" id="cp-hue-thumb" style="left:0%"></div>
+        </div>
+      </div>
+    </div>
+    <div class="cp-bottom-row">
+      <div class="cp-mode-wrap">
+        <select class="cp-mode-select" id="cp-color-mode">
+          <option value="hex">Hex</option>
+          <option value="rgb">RGB</option>
+          <option value="css">CSS</option>
+        </select>
+        <svg width="8" height="5" viewBox="0 0 8 5" fill="none"><path d="M1 1l3 3 3-3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+      </div>
+      <input class="cp-color-val" id="cp-color-input" value="FFFFFF" spellcheck="false">
+    </div>
+  </div>
+</div>
+
+<div id="app-shell">
+
+  <!-- ══ CANVAS ══ -->
+  <div id="canvas-area">
+    <div id="loader">
+      <div class="loader-spinner"></div>
+      <p id="loader-text">ОЖИДАНИЕ ФРЕЙМОВ ИЗ FIGMA...</p>
+    </div>
+    <div id="error-msg">
+      <div class="err-box">
+        <div class="err-title">⚠ Не удалось подключиться к серверу</div>
+        <div class="err-body">
+          Плагин требует локальный Python-сервер для генерации карт глубины.<br>
+          <ol class="err-steps">
+            <li>Откройте Терминал (Terminal)</li>
+            <li>Перейдите в папку плагина:<br><code>cd путь/к/3DRevealPro</code></li>
+            <li>Запустите сервер:<br><code>python server.py</code></li>
+            <li>Дождитесь сообщения <em>«Сервер готов»</em></li>
+            <li>Нажмите <strong>Повторить</strong> ниже</li>
+          </ol>
+          <br>Первый запуск может занять 1–3 минуты (загрузка модели).
+        </div>
+        <div class="err-btns">
+          <button class="err-retry" onclick="location.reload()">Повторить</button>
+          <button class="err-close" onclick="document.getElementById('error-msg').style.display='none'">Закрыть</button>
+        </div>
+      </div>
+    </div>
+    <div id="canvas-wrap">
+      <canvas id="glcanvas"></canvas>
+      <!-- Video mode: two stacked videos composited with mask -->
+      <canvas id="video-canvas" style="display:none;max-width:100%;max-height:100%;border-radius:10px;box-shadow:0 6px 40px rgba(0,0,0,.13);transform-origin:center center;cursor:crosshair;"></canvas>
+    </div>
+    <!-- Video mode overlay: shown before videos loaded -->
+    <div id="video-load-overlay" style="display:none;position:absolute;inset:0;flex-direction:column;align-items:center;justify-content:center;gap:10px;pointer-events:none;z-index:5;">
+      <svg width="40" height="40" viewBox="0 0 40 40" fill="none"><rect x="2" y="7" width="26" height="20" rx="4" stroke="#C0C0B8" stroke-width="2"/><path d="M28 16l10-5.5v13L28 18" stroke="#C0C0B8" stroke-width="2" stroke-linecap="round"/></svg>
+      <span style="font-size:13px;color:#C0C0B8;font-weight:500;letter-spacing:.02em;">Загрузите видео</span>
+    </div>
+    <div id="zoom-bar">
+      <button onclick="adjustZoom(-0.15)">
+        <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M3 7h8" stroke="#1C1C1A" stroke-width="1.4" stroke-linecap="round"/></svg>
+      </button>
+      <span id="zoom-label">85%</span>
+      <div class="zoom-divider"></div>
+      <button onclick="adjustZoom(0.15)">
+        <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M7 3v8M3 7h8" stroke="#1C1C1A" stroke-width="1.4" stroke-linecap="round"/></svg>
+      </button>
+      <div class="zoom-divider"></div>
+      <button onclick="resetZoom()">
+        <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+          <path d="M11.5 7a4.5 4.5 0 1 1-1-2.8" stroke="#1C1C1A" stroke-width="1.4" stroke-linecap="round"/>
+          <polyline points="11.5,2.5 11.5,5 9,5" stroke="#1C1C1A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ══ PANEL ══ -->
+  <div id="settings-panel">
+    <div id="panel-resize-handle"></div>
+
+    <div id="panel-scroll">
+
+      <!-- 0. ТИП ПРОЕКТА -->
+      <div class="sec-block">
+        <div class="sec-head">
+          <div class="sec-icon">
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+              <rect x="1" y="2" width="5" height="5" rx="1" fill="#1C1C1A"/>
+              <rect x="8" y="2" width="5" height="5" rx="1" fill="#1C1C1A" opacity=".3"/>
+              <rect x="1" y="9" width="5" height="3" rx="1" fill="#1C1C1A" opacity=".3"/>
+              <rect x="8" y="9" width="5" height="3" rx="1" fill="#1C1C1A" opacity=".3"/>
+            </svg>
+          </div>
+          <div class="sec-title-row"><span class="sec-label">Тип проекта</span></div>
+        </div>
+        <div class="sec-body">
+          <div class="field-label" style="margin-top:8px;">Режим</div>
+          <div class="tag-row">
+            <span class="tag active" onclick="selectProjectType('photo',this)"><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><rect x="1" y="2" width="10" height="8" rx="1.5" stroke="currentColor" stroke-width="1.2"/><circle cx="6" cy="6" r="1.8" fill="currentColor"/></svg>Фото</span>
+            <span class="tag" onclick="selectProjectType('code',this)"><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M4 3.5L1.5 6 4 8.5M8 3.5L10.5 6 8 8.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Код</span>
+          </div>
+          <div id="project-photo-section" class="sub-section visible">
+            <div class="section-div"></div>
+            <div class="field-label">Длительность записи</div>
+            <div class="time-chips">
+              <span class="time-chip" onclick="selectTime(5,this)">5 сек</span>
+              <span class="time-chip active" onclick="selectTime(7,this)">7 сек</span>
+              <span class="time-chip" onclick="selectTime('custom',this)">Настроить</span>
+            </div>
+            <div id="custom-time-row" class="custom-time-row" style="display:none">
+              <input type="number" id="custom-time-input" min="1" max="120" value="10">
+              <span class="custom-time-label">секунд</span>
+            </div>
+            <div class="section-div"></div>
+            <div class="field-label">Способ записи</div>
+            <div class="tag-row">
+              <span class="tag active" onclick="selectRecordMode('auto',this)"><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M10 6A4 4 0 1 1 6 2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><path d="M6 1l2 1.5-2 1.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Автоматический</span>
+              <span class="tag" onclick="selectRecordMode('manual',this)"><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M5 2.5V7M3 4V7M7 4V7M9 5.5V7M3 7c0 1.7 1.3 3 3 3s3-1.3 3-3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>Вручную</span>
+            </div>
+          </div>
+          <div id="project-code-section" class="sub-section">
+            <div style="font-size:11.5px;color:var(--muted);line-height:1.65;margin-top:16px;">Настройки режима «Код» будут доступны в следующем обновлении.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 1. ИСТОЧНИК -->
+      <div class="sec-block">
+        <div class="sec-head">
+          <div class="sec-icon">
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+              <rect x="1.5" y="1.5" width="11" height="8" rx="1.5" stroke="#1C1C1A" stroke-width="1.2"/>
+              <path d="M5 12.5H9M7 9.5V12" stroke="#1C1C1A" stroke-width="1.2" stroke-linecap="round"/>
+              <circle cx="7" cy="5.5" r="1.5" fill="#1C1C1A"/>
+            </svg>
+          </div>
+          <div class="sec-title-row"><span class="sec-label">Источник</span></div>
+        </div>
+        <div class="sec-body">
+          <div class="field-label" style="margin-top:8px;">Тип медиа</div>
+          <div class="tag-row">
+            <span class="tag active" onclick="selectMediaType('photo',this)"><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><rect x="1" y="2" width="10" height="8" rx="1.5" stroke="currentColor" stroke-width="1.2"/><circle cx="6" cy="6" r="1.8" fill="currentColor"/></svg>Фото</span>
+            <span class="tag" onclick="selectMediaType('video',this)"><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><rect x="1" y="3" width="7" height="6" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M8 5l3-1.5v5L8 7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Видео</span>
+          </div>
+          <div id="photo-section" class="sub-section visible">
+            <div class="preview-row">
+              <div class="preview-thumb"><canvas id="thumb-base"></canvas><div class="preview-thumb-label">Base</div></div>
+              <div class="preview-thumb"><canvas id="thumb-reveal"></canvas><div class="preview-thumb-label">Reveal</div></div>
+            </div>
+            <div id="alpha-badge-base" style="display:none"></div>
+          </div>
+          <div id="video-section" class="sub-section">
+            <div class="preview-row">
+              <div class="preview-thumb" id="video-thumb-base" onclick="triggerVideoUpload('base')">
+                <div class="video-upload-placeholder" id="video-placeholder-base">
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="1" y="3" width="11" height="9" rx="2" stroke="#9A9A92" stroke-width="1.3"/><path d="M12 7.5l4.5-2.5v7l-4.5-2.5" stroke="#9A9A92" stroke-width="1.3" stroke-linecap="round"/></svg>
+                  <span>Base</span>
+                </div>
+                <video id="video-preview-base" style="display:none;width:100%;height:100%;object-fit:cover;border-radius:8px;" muted loop playsinline></video>
+                <div class="preview-thumb-label">Base</div>
+              </div>
+              <div class="preview-thumb" id="video-thumb-reveal" onclick="triggerVideoUpload('reveal')">
+                <div class="video-upload-placeholder" id="video-placeholder-reveal">
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="1" y="3" width="11" height="9" rx="2" stroke="#9A9A92" stroke-width="1.3"/><path d="M12 7.5l4.5-2.5v7l-4.5-2.5" stroke="#9A9A92" stroke-width="1.3" stroke-linecap="round"/></svg>
+                  <span>Reveal</span>
+                </div>
+                <video id="video-preview-reveal" style="display:none;width:100%;height:100%;object-fit:cover;border-radius:8px;" muted loop playsinline></video>
+                <div class="preview-thumb-label">Reveal</div>
+              </div>
+            </div>
+            <input type="file" id="file-video-base" accept="video/*" style="display:none" onchange="handleVideoUpload(this,'base')">
+            <input type="file" id="file-video-reveal" accept="video/*" style="display:none" onchange="handleVideoUpload(this,'reveal')">
+            <div id="video-status" style="font-size:10px;color:var(--muted);margin-top:8px;text-align:center;display:none;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. НАСТРОЙКИ ФОНА -->
+      <div class="sec-block" id="block-bg">
+        <div class="sec-head">
+          <div class="sec-icon">
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+              <circle cx="7" cy="7" r="5.5" stroke="#1C1C1A" stroke-width="1.2"/>
+              <path d="M7 1.5C7 1.5 9.5 4 9.5 7S7 12.5 7 12.5" stroke="#1C1C1A" stroke-width="1.2" stroke-linecap="round"/>
+              <path d="M1.5 7H12.5" stroke="#1C1C1A" stroke-width="1.2" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="sec-title-row">
+            <span class="sec-label">Настройки фона</span>
+            <div class="info-hint">
+              <div class="info-hint-trigger">
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="4" stroke="#9A9A92" stroke-width="1.1"/><path d="M5 4.5V7" stroke="#9A9A92" stroke-width="1.1" stroke-linecap="round"/><circle cx="5" cy="3" r=".6" fill="#9A9A92"/></svg>
+              </div>
+              <div class="info-tooltip">Применяется только к PNG с прозрачным фоном</div>
+            </div>
+          </div>
+        </div>
+        <div class="sec-body" id="bg-body">
+          <div class="color-row" style="margin-top:8px;">
+            <div class="color-col">
+              <div class="color-col-label">Base</div>
+              <div class="color-swatch-wrap">
+                <div class="color-swatch" id="swatch-bg-base" style="background:#ffffff" onclick="openColorPicker('bg-base',this)"></div>
+                <input type="text" class="hex-input" id="hex-bg-base" value="#ffffff" maxlength="7" oninput="syncHex('bg-base',this.value)">
+              </div>
+            </div>
+            <div class="color-col">
+              <div class="color-col-label">Reveal</div>
+              <div class="color-swatch-wrap">
+                <div class="color-swatch" id="swatch-bg-reveal" style="background:#b3d0a2" onclick="openColorPicker('bg-reveal',this)"></div>
+                <input type="text" class="hex-input" id="hex-bg-reveal" value="#b3d0a2" maxlength="7" oninput="syncHex('bg-reveal',this.value)">
+              </div>
+            </div>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-label">Топографические линии</span>
+            <div class="toggle on" id="toggle-lines" onclick="toggleLines(this)"></div>
+          </div>
+          <div id="lines-settings" class="sub-section visible">
+            <div class="color-row">
+              <div class="color-col">
+                <div class="color-col-label">Цвет Base</div>
+                <div class="color-swatch-wrap">
+                  <div class="color-swatch" id="swatch-line-color-base" style="background:#f0f0f0" onclick="openColorPicker('line-color-base',this)"></div>
+                  <input type="text" class="hex-input" id="hex-line-color-base" value="#f0f0f0" maxlength="7" oninput="syncHex('line-color-base',this.value)">
+                </div>
+              </div>
+              <div class="color-col">
+                <div class="color-col-label">Цвет Reveal</div>
+                <div class="color-swatch-wrap">
+                  <div class="color-swatch" id="swatch-line-color-reveal" style="background:#9fc392" onclick="openColorPicker('line-color-reveal',this)"></div>
+                  <input type="text" class="hex-input" id="hex-line-color-reveal" value="#9fc392" maxlength="7" oninput="syncHex('line-color-reveal',this.value)">
+                </div>
+              </div>
+            </div>
+            <div class="control-group">
+              <div class="ctrl-label">Искажение <span id="val-line-complexity" class="ctrl-value">0.48</span></div>
+              <input type="range" id="input-line-complexity" min="0" max="1" step=".01" value=".48">
+            </div>
+            <div class="control-group">
+              <div class="ctrl-label">Масштаб <span id="val-line-scale" class="ctrl-value">1.30</span></div>
+              <input type="range" id="input-line-scale" min=".5" max="10" step=".1" value="1.3">
+            </div>
+            <div class="control-group">
+              <div class="ctrl-label">Скорость <span id="val-line-speed" class="ctrl-value">0.08</span></div>
+              <input type="range" id="input-line-speed" min="0" max="1" step=".01" value=".08">
+            </div>
+            <div class="control-group">
+              <div class="ctrl-label">Толщина <span id="val-line-thickness" class="ctrl-value">0.02</span></div>
+              <input type="range" id="input-line-thickness" min=".01" max=".5" step=".01" value=".02">
+            </div>
+            <div class="action-row">
+              <button class="action-btn surprise" onclick="randomizePattern()"><svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M7 1.5L8.2 5.5H12.5L9 8L10.2 12L7 9.5L3.8 12L5 8L1.5 5.5H5.8Z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Удивить
+              </button>
+              <button class="action-btn reset" onclick="resetPattern()">
+                <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                  <path d="M12 7A5 5 0 1 1 9.5 2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                  <path d="M9.5 1 L9.5 3.5 L7 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>Сбросить
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. ФИЗИКА И ГЛУБИНА -->
+      <div class="sec-block" id="block-depth">
+        <div class="sec-head">
+          <div class="sec-icon">
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+              <circle cx="7" cy="7" r="1.8" fill="#1C1C1A"/>
+              <path d="M7 1.5V3.5M7 10.5V12.5M1.5 7H3.5M10.5 7H12.5" stroke="#1C1C1A" stroke-width="1.2" stroke-linecap="round"/>
+              <path d="M3.2 3.2L4.6 4.6M9.4 9.4L10.8 10.8M10.8 3.2L9.4 4.6M4.6 9.4L3.2 10.8" stroke="#1C1C1A" stroke-width="1.1" stroke-linecap="round" opacity=".45"/>
+            </svg>
+          </div>
+          <div class="sec-title-row"><span class="sec-label">Физика и глубина</span></div>
+          <div class="head-toggle on" id="toggle-depth" onclick="toggleDepthMode(this)"></div>
+        </div>
+        <div class="sec-body" id="depth-body">
+          <div class="control-group" style="margin-top:8px;">
+            <div class="ctrl-label">Глубина 3D <span id="val-depth" class="ctrl-value">0.10</span></div>
+            <input type="range" id="input-depth" min="0" max="1" step=".01" value=".1">
+          </div>
+          <div class="control-group">
+            <div class="ctrl-label">Масштаб модели <span id="val-model-scale" class="ctrl-value">1.20</span></div>
+            <input type="range" id="input-model-scale" min=".5" max="3" step=".01" value="1.2">
+          </div>
+          <div class="control-group">
+            <div class="ctrl-label">Поворот X <span id="val-rot-x" class="ctrl-value">-4.0</span></div>
+            <input type="range" id="input-rot-x" min="-10" max="10" step=".1" value="-4">
+          </div>
+          <div class="control-group">
+            <div class="ctrl-label">Поворот Y <span id="val-rot-y" class="ctrl-value">4.0</span></div>
+            <input type="range" id="input-rot-y" min="-10" max="10" step=".1" value="4">
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. КИСТЬ -->
+      <div class="sec-block">
+        <div class="sec-head">
+          <div class="sec-icon">
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+              <path d="M9.5 1.5L12.5 4.5L5.5 11.5C4.5 12.5 2 12.5 1.5 12C1 11.5 1.5 9 2.5 8L9.5 1.5Z" stroke="#1C1C1A" stroke-width="1.2" stroke-linejoin="round"/>
+              <path d="M8 3L11 6" stroke="#1C1C1A" stroke-width="1.2" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="sec-title-row"><span class="sec-label">Кисть</span></div>
+        </div>
+        <div class="sec-body">
+          <div class="control-group" style="margin-top:8px;">
+            <div class="ctrl-label">Толщина <span id="val-thickness" class="ctrl-value">350</span></div>
+            <input type="range" id="input-thickness" min="50" max="800" value="350">
+          </div>
+          <div class="control-group">
+            <div class="ctrl-label">Длина шлейфа <span id="val-points" class="ctrl-value">300</span></div>
+            <input type="range" id="input-points" min="10" max="600" value="300">
+          </div>
+          <div class="control-group">
+            <div class="ctrl-label">Сглаживание <span id="val-lerp" class="ctrl-value">0.82</span></div>
+            <input type="range" id="input-lerp" min=".5" max=".98" step=".01" value=".82">
+          </div>
+          <div class="action-row">
+            <button class="action-btn surprise" onclick="randomizeBrush()"><svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M7 1.5L8.2 5.5H12.5L9 8L10.2 12L7 9.5L3.8 12L5 8L1.5 5.5H5.8Z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Удивить
+            </button>
+            <button class="action-btn reset" onclick="resetBrush()">
+                <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                  <path d="M12 7A5 5 0 1 1 9.5 2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                  <path d="M9.5 1 L9.5 3.5 L7 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>Сбросить
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. АВТО-МАСКА -->
+      <div class="sec-block" id="block-auto-mask">
+        <div class="sec-head">
+          <div class="sec-icon">
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+              <rect x="1.5" y="1.5" width="11" height="11" rx="2" stroke="#1C1C1A" stroke-width="1.2"/>
+              <path d="M4.5 7L6.5 9L9.5 5" stroke="#1C1C1A" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="sec-title-row">
+            <span class="sec-label">Автоматическая маска</span>
+            <div class="info-hint">
+              <div class="info-hint-trigger">
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="4" stroke="#9A9A92" stroke-width="1.1"/><path d="M5 4.5V7" stroke="#9A9A92" stroke-width="1.1" stroke-linecap="round"/><circle cx="5" cy="3" r=".6" fill="#9A9A92"/></svg>
+              </div>
+              <div class="info-tooltip">Авто-маска движет кистью по траектории. Выключите для управления мышью.</div>
+            </div>
+          </div>
+          <div class="head-toggle on" id="toggle-auto" onclick="toggleAutoMask(this)"></div>
+        </div>
+        <div class="sec-body" id="auto-body">
+          <div class="control-group" style="margin-top:8px;">
+            <div class="ctrl-label">Скорость <span id="val-auto-speed" class="ctrl-value">1.0</span></div>
+            <input type="range" id="input-auto-speed" min=".1" max="5" step=".1" value="1">
+          </div>
+          <div class="field-label">Траектория</div>
+          <div class="traj-grid" id="traj-grid"></div>
+        </div>
+      </div>
+
+    </div><!-- /panel-scroll -->
+
+    <div class="panel-footer">
+      <div class="footer-row">
+        <button id="start-btn" onclick="handleStartBtn()">
+          <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="white" stroke-width="1.3"/><circle cx="7" cy="7" r="3" fill="white"/></svg>
+          <span id="start-btn-text">Начать запись</span>
+        </button>
+        <button id="cancel-btn" onclick="cancelRecording()">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M4 4L10 10M10 4L4 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div><!-- /app-shell -->
+
+<script>
+// Panel resize disabled — fixed width panel
+
+// ══ ZOOM ══
+let _zoom=0.85; // 85% by default on first open
+function adjustZoom(d){_zoom=Math.max(.25,Math.min(4,_zoom+d));applyZoom();}
+function resetZoom(){_zoom=1;applyZoom();}
+// Zoom label initialised in HTML as 85%
+function applyZoom(){
+  const cv=document.getElementById('glcanvas');
+  cv.style.transform=`scale(${_zoom})`;
+  cv.style.transformOrigin='center center';
+  const vc=document.getElementById('video-canvas');
+  if(vc) { vc.style.transform=`scale(${_zoom})`; vc.style.transformOrigin='center center'; }
+  document.getElementById('zoom-label').textContent=Math.round(_zoom*100)+'%';
+}
+
+// ══ TRAJECTORY CARDS (#5: fixed figure-8 path) ══
+const TRAJS=[
+  {label:'Горизонт',  idx:0, svg:'<path d="M1 12 C5 8,9 8,14 12 C19 16,23 16,28 12" stroke="#1C1C1A" stroke-width="1.4" stroke-linecap="round" fill="none"/>'},
+  {label:'Волны',     idx:1, svg:'<path d="M1 12 C4 7,7 7,10 12 C13 17,16 17,19 12 C22 7,25 7,28 12" stroke="#1C1C1A" stroke-width="1.4" stroke-linecap="round" fill="none"/>'},
+  {label:'Восьмёрка', idx:2, svg:'<path d="M14 12 C10 7,3 7,3 12 C3 17,10 17,14 12 C18 7,25 7,25 12 C25 17,18 17,14 12 Z" stroke="#1C1C1A" stroke-width="1.4" stroke-linecap="round" fill="none"/>'},
+  {label:'Зигзаг',    idx:3, svg:'<path d="M1 5 L8 19 L15 5 L22 19 L28 5" stroke="#1C1C1A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'},
+  {label:'Водоворот', idx:4, svg:'<path d="M14 11.5 C16 9,19.5 9,20 12 C20.5 15,17 18,13.5 17.5 C9 17,7 13,8.5 9.5 C10 6,14 4,18 5.5 C23 7.5,25 13,23 18" stroke="#1C1C1A" stroke-width="1.4" stroke-linecap="round" fill="none"/>'},
+  {label:'Звезда',    idx:5, svg:'<path d="M14 2 L16 9 L23 9 L18 14 L20 21 L14 17 L8 21 L10 14 L5 9 L12 9 Z" stroke="#1C1C1A" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'},
+];
+(function(){
+  const g=document.getElementById('traj-grid');
+  TRAJS.forEach(t=>{
+    const c=document.createElement('div');
+    c.className='traj-card'+(t.idx===0?' active':'');
+    c.dataset.idx=t.idx;
+    c.onclick=()=>selectTraj(t.idx);
+    const svgContent = t.svg || `<path d="${t.path||''}" stroke="#1C1C1A" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>`;
+    c.innerHTML = `<svg class="traj-preview" viewBox="0 0 28 24" fill="none">${svgContent}</svg><div class="traj-label">${t.label}</div>`;
+    g.appendChild(c);
+  });
+})();
+function selectTraj(idx){
+  document.querySelectorAll('.traj-card').forEach(c=>c.classList.toggle('active',+c.dataset.idx===idx));
+  if(typeof config!=='undefined')config.trajectory=idx;
+  if(typeof window._resetPhotoAutoT==='function') window._resetPhotoAutoT();
+}
+
+// ══ PROJECT TYPE ══
+function selectProjectType(type,el){
+  el.closest('.tag-row').querySelectorAll('.tag').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('project-photo-section').classList.toggle('visible',type==='photo');
+  document.getElementById('project-code-section').classList.toggle('visible',type==='code');
+}
+
+// ══ RECORD DURATION ══
+let recordDuration=7;
+function selectTime(val,el){
+  el.closest('.time-chips').querySelectorAll('.time-chip').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  const cr=document.getElementById('custom-time-row');
+  if(val==='custom'){cr.style.display='flex';recordDuration=parseInt(document.getElementById('custom-time-input').value)||10;}
+  else{cr.style.display='none';recordDuration=val;}
+}
+document.getElementById('custom-time-input').oninput=e=>{recordDuration=parseInt(e.target.value)||10;};
+
+// ══ RECORD MODE ══
+function selectRecordMode(mode,el){
+  el.closest('.tag-row').querySelectorAll('.tag').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  const blk = document.getElementById('block-auto-mask');
+  if(mode==='manual'){
+    if(blk) blk.style.display = 'none';
+    window._autoMaskEnabled = false;
+    if(typeof isAutoPlaying!=='undefined') isAutoPlaying=false;
+  } else {
+    if(blk) blk.style.display = '';
+    window._autoMaskEnabled = document.getElementById('toggle-auto').classList.contains('on');
+    // В видео режиме форсируем немедленный старт авто-маски
+    if(window._videoMode) window._vidForceAuto = true;
+  }
+}
+
+// ══════════════════════════════════════════════════
+// VIDEO MODE
+// Ключевые принципы:
+// 1. Для воспроизведения используются DOM <video> элементы (превью),
+//    т.к. они создаются в момент user-gesture (file upload).
+// 2. video-canvas рисует из тех же элементов — нет дублирования.
+// 3. При переключении на Фото — восстанавливается WebGL без изменений.
+// ══════════════════════════════════════════════════
+let _videoMode = false;
+let _vidRAF    = null;
+let _vidMaskCanvas = null;
+let _vidBaseReady   = false;
+let _vidRevealReady = false;
+
+const VIDEO_HIDE_SECTIONS = ['block-bg', 'block-depth'];
+
+function selectMediaType(type, el){
+  el.closest('.tag-row').querySelectorAll('.tag').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  _videoMode = (type === 'video');
+  window._videoMode = _videoMode;
+
+  document.getElementById('photo-section').classList.toggle('visible', !_videoMode);
+  document.getElementById('video-section').classList.toggle('visible',  _videoMode);
+  VIDEO_HIDE_SECTIONS.forEach(id=>{
+    const b=document.getElementById(id); if(!b) return;
+    if(_videoMode){ b.style.display='none'; }
+    else {
+      // Restore: block-bg visibility depends on alpha badge state
+      b.style.display = (id==='block-bg' && !_blockBgVisible) ? 'none' : '';
+    }
+  });
+
+  const glCanvas  = document.getElementById('glcanvas');
+  const vidCanvas = document.getElementById('video-canvas');
+  const overlay   = document.getElementById('video-load-overlay');
+
+  if(_videoMode){
+    glCanvas.style.display  = 'none';
+    window._photoFrameActive = false; // Pause photo render loop
+    // При входе в видео режим — всегда включаем авто-маску
+    window._autoMaskEnabled = true;
+    window._vidForceAuto    = true;
+    // Сбрасываем кнопку "Способ записи" в "Автоматический"
+    document.querySelectorAll('#project-photo-section .tag-row .tag').forEach((t,i)=>{
+      t.classList.toggle('active', i===0);
+    });
+    const blk = document.getElementById('block-auto-mask');
+    if(blk) blk.style.display = '';
+    // Show canvas if both videos already loaded, else show overlay
+    if(_vidBaseReady && _vidRevealReady){
+      vidCanvas.style.display = 'block';
+      overlay.style.display   = 'none';
+      _restartVideoLoop();
+    } else {
+      vidCanvas.style.display = 'none';
+      overlay.style.display   = 'flex';
+    }
+  } else {
+    // ── Возврат к фото ──
+    _stopVideoLoop();
+    vidCanvas.style.display = 'none';
+    overlay.style.display   = 'none';
+    glCanvas.style.display  = '';
+    glCanvas.style.transform = `scale(${_zoom})`;
+    glCanvas.style.transformOrigin = 'center center';
+    if(typeof window._restartPhotoRender === 'function') window._restartPhotoRender();
+  }
+}
+
+function _stopVideoLoop(){
+  if(_vidRAF){ cancelAnimationFrame(_vidRAF); _vidRAF=null; }
+  window._videoFrameActive = false;
+  // Pause preview videos (they are the source for canvas)
+  const pB = document.getElementById('video-preview-base');
+  const pR = document.getElementById('video-preview-reveal');
+  if(pB && !pB.paused) pB.pause();
+  if(pR && !pR.paused) pR.pause();
+}
+
+function _restartVideoLoop(){
+  _stopVideoLoop();
+  const pB = document.getElementById('video-preview-base');
+  const pR = document.getElementById('video-preview-reveal');
+  if(!pB || !pR) return;
+  // Sync both to 0 and play
+  pB.currentTime = 0;
+  pR.currentTime = 0;
+  pB.play().catch(()=>{});
+  pR.play().catch(()=>{});
+  const vidCanvas = document.getElementById('video-canvas');
+  const overlay   = document.getElementById('video-load-overlay');
+  const W = pB.videoWidth  || pR.videoWidth  || 1280;
+  const H = pB.videoHeight || pR.videoHeight || 720;
+  vidCanvas.width  = W; vidCanvas.height = H;
+  vidCanvas.style.display = 'block';
+  if(overlay) overlay.style.display = 'none';
+  vidCanvas.style.transform = `scale(${_zoom})`;
+  vidCanvas.style.transformOrigin = 'center center';
+  if(!_vidMaskCanvas || _vidMaskCanvas.width !== W || _vidMaskCanvas.height !== H){
+    _vidMaskCanvas = document.createElement('canvas');
+    _vidMaskCanvas.width = W; _vidMaskCanvas.height = H;
+  }
+  window._videoFrameActive = true;
+  _runVideoLoop(vidCanvas, _vidMaskCanvas, pB, pR, W, H);
+}
+
+function triggerVideoUpload(side){ document.getElementById('file-video-'+side).click(); }
+function triggerUpload(id){ document.getElementById(id).click(); }
+
+function handleVideoUpload(input, side){
+  const file = input.files[0];
+  if(!file) return;
+  const url = URL.createObjectURL(file);
+
+  const preview     = document.getElementById('video-preview-'+side);
+  const placeholder = document.getElementById('video-placeholder-'+side);
+  const thumb       = document.getElementById('video-thumb-'+side);
+
+  // Revoke previous blob URL to free memory
+  if(preview.src && preview.src.startsWith('blob:')) URL.revokeObjectURL(preview.src);
+
+  // Настраиваем video элемент
+  preview.src         = url;
+  preview.muted       = true;
+  preview.loop        = true;
+  preview.playsInline = true;
+  preview.style.display = 'block';
+  placeholder.style.display = 'none';
+  thumb.classList.add('has-video');
+
+  // Запускаем сразу в контексте user-gesture
+  preview.load();
+  const playPromise = preview.play();
+  if(playPromise) playPromise.catch(()=>{});
+
+  if(side === 'base')  _vidBaseReady   = false;
+  else                 _vidRevealReady = false;
+
+  preview.onloadedmetadata = () => {
+    if(side === 'base')  _vidBaseReady   = true;
+    else                 _vidRevealReady = true;
+    _updateVideoStatus();
+    if(_vidBaseReady && _vidRevealReady && _videoMode){
+      _restartVideoLoop();
+    }
+  };
+  // Fallback если метаданные уже есть
+  if(preview.readyState >= 1){
+    if(side === 'base')  _vidBaseReady   = true;
+    else                 _vidRevealReady = true;
+    _updateVideoStatus();
+    if(_vidBaseReady && _vidRevealReady && _videoMode){
+      setTimeout(_restartVideoLoop, 0);
+    }
+  }
+}
+
+function _updateVideoStatus(){
+  const status = document.getElementById('video-status');
+  status.style.display = 'block';
+  if(_vidBaseReady && _vidRevealReady){
+    status.textContent = '✓ Оба видео загружены — синхронное воспроизведение';
+    status.style.color = '#3A7A2E';
+  } else if(_vidBaseReady){
+    status.textContent = 'Загрузите Reveal видео';
+    status.style.color = 'var(--muted)';
+  } else if(_vidRevealReady){
+    status.textContent = 'Загрузите Base видео';
+    status.style.color = 'var(--muted)';
+  }
+}
+
+function _runVideoLoop(vc, maskC, vidB, vidR, W, H){
+  const ctx  = vc.getContext('2d');
+  const mCtx = maskC.getContext('2d');
+  const tmp  = document.createElement('canvas');
+  tmp.width=W; tmp.height=H;
+  const tc = tmp.getContext('2d');
+
+  // ── Инициализация состояния кисти для видео режима ──
+  mouse = {nx:0, ny:0, x:W/2, y:H/2};
+  head  = {x:W/2, y:H/2};
+  revealFactor   = 0;
+  currentIntensity = 1;
+  points = [];
+  const initCount = config.pointCount || 300;
+  while(points.length < initCount) points.push({x:W/2, y:H/2});
+
+  // ── Timing и авто-состояние ──
+  let lastT = performance.now();
+  let _vidLastAct = 0;      // 0 = ещё не было движения → авто стартует сразу
+  let _vidAutoT   = 0.0;
+  let _vidIsAuto  = true;
+
+  // ── Траектории (дублируем из photo-режима) ──
+  const vTraj = [
+    t => ({ x: t<0.5?t*2:2-t*2, y: 0.5+0.06*Math.sin(t*Math.PI*2) }),
+    t => ({ x: t<0.5?t*2:2-t*2, y: 0.5+0.30*Math.sin(t*Math.PI*6) }),
+    t => { const a=t*Math.PI*2, d=1+Math.sin(a)*Math.sin(a); return {x:0.5+0.36*Math.cos(a)/d, y:0.5+0.30*Math.sin(a)*Math.cos(a)/d}; },
+    t => { const xt=t*3, xi=xt%1; return {x:t, y:xi<0.5?0.18+xi*2*0.64:0.82-(xi-0.5)*2*0.64}; },
+    t => { const a=t*Math.PI*2*3, ph=t<0.5?t*2:1-(t-0.5)*2, r=0.40*ph; return {x:0.5+r*Math.cos(a-Math.PI/2), y:0.5+r*Math.sin(a-Math.PI/2)}; },
+    t => { const a=t*Math.PI*2-Math.PI/2, r=0.29+0.115*Math.cos(a*5); return {x:0.5+r*Math.cos(a), y:0.5+r*Math.sin(a)}; },
+  ];
+  const vPeriods = [4500, 5000, 4000, 4000, 6000, 4500];
+
+  // ── Мышь на видео-канвасе ──
+  function onVidMouse(e){
+    if(!window._videoFrameActive) return;
+    const r = vc.getBoundingClientRect();
+    if(!r.width||!r.height) return;
+    _vidLastAct = Date.now();
+    _vidIsAuto  = false;
+    currentIntensity = 1;
+    const nx = (e.clientX-r.left)/r.width;
+    const ny = (e.clientY-r.top )/r.height;
+    mouse.x = nx*W; mouse.y = ny*H;
+    mouse.nx = nx*2-1; mouse.ny = ny*2-1;
+    revealFactor = Math.min(1, revealFactor+0.15);
+  }
+  vc.addEventListener('mousemove', onVidMouse);
+
+  function frame(){
+    if(!window._videoFrameActive){
+      vc.removeEventListener('mousemove', onVidMouse);
+      _vidRAF=null; return;
+    }
+
+    // Форсированный рестарт авто-маски (от кнопки "Автоматически")
+    if(window._vidForceAuto){ _vidIsAuto=true; _vidLastAct=0; _vidAutoT=0; window._vidForceAuto=false; }
+
+    const now=performance.now(), dt=now-lastT; lastT=now;
+    const autoON = window._autoMaskEnabled!==false;
+    const th = config.thickness || 350;
+
+    // ── Авто-маска / revealFactor ──
+    if(!_vidIsAuto){
+      if(autoON && (_vidLastAct===0 || Date.now()-_vidLastAct > config.idleDelay)){
+        _vidIsAuto=true; _vidAutoT=0;
+      } else {
+        if(Date.now()-_vidLastAct < 200) revealFactor=Math.min(1, revealFactor+0.15);
+        else revealFactor=Math.max(0, revealFactor-config.fadeSpeed);
+      }
+    }
+    if(_vidIsAuto && autoON){
+      const period = vPeriods[config.trajectory] || 4500;
+      _vidAutoT = (_vidAutoT + (dt*config.autoSpeed)/period) % 1.0;
+      const pos = (vTraj[config.trajectory]||vTraj[0])(_vidAutoT);
+      mouse.x = Math.max(0,Math.min(1,pos.x))*W;
+      mouse.y = Math.max(0,Math.min(1,pos.y))*H;
+      mouse.nx = pos.x*2-1; mouse.ny = pos.y*2-1;
+      currentIntensity = 1.25;
+      revealFactor = 1.0;
+    }
+
+    // ── Обновление шлейфа кисти ──
+    head.x=mouse.x; head.y=mouse.y;
+    while(points.length < config.pointCount) points.push({x:head.x, y:head.y});
+    if(points.length > config.pointCount) points.length = config.pointCount;
+    if(points.length>0){
+      points[0].x=head.x; points[0].y=head.y;
+      for(let i=1;i<points.length;i++){
+        points[i].x+=(points[i-1].x-points[i].x)*config.lerpFactor;
+        points[i].y+=(points[i-1].y-points[i].y)*config.lerpFactor;
+      }
+    }
+
+    // Синхронизация видео: reveal следует за base
+    const _drift = vidR.currentTime - vidB.currentTime;
+    if(Math.abs(_drift) > 0.5){ vidR.currentTime = vidB.currentTime; } // hard reset for large drift
+    else if(Math.abs(_drift) > 0.05){ vidR.playbackRate = _drift > 0 ? 0.85 : 1.15; }
+    else { vidR.playbackRate = 1.0; }
+
+    // ── Маска кисти ──
+    // clearRect = прозрачно (alpha=0) → destination-in скроет reveal, покажет base
+    // белые штрихи = непрозрачно (alpha=255) → destination-in покажет reveal через кисть
+    mCtx.clearRect(0,0,W,H);
+    const rf = revealFactor;
+    const ci = currentIntensity;
+    if(points.length>1 && rf>0.001){
+      mCtx.strokeStyle='rgba(255,255,255,1)'; mCtx.lineCap='round'; mCtx.lineJoin='round';
+      for(let i=0;i<points.length-1;i++){
+        const w = th*ci*(1-(i/points.length)*0.98)*rf;
+        if(w>0.5){
+          mCtx.beginPath();
+          mCtx.moveTo(points[i].x, points[i].y);
+          mCtx.lineTo(points[i+1].x, points[i+1].y);
+          mCtx.lineWidth=w; mCtx.stroke();
+        }
+      }
+      const hr=(th/2)*ci*rf;
+      if(hr>0.5){
+        mCtx.beginPath();
+        mCtx.arc(points[0].x, points[0].y, hr, 0, Math.PI*2);
+        mCtx.fillStyle='#fff'; mCtx.fill();
+      }
+    }
+
+    // ── Композитинг: base + (reveal через маску) ──
+    ctx.drawImage(vidB, 0, 0, W, H);
+    tc.clearRect(0,0,W,H);
+    tc.drawImage(vidR, 0, 0, W, H);
+    tc.globalCompositeOperation='destination-in';
+    tc.drawImage(maskC, 0, 0, W, H);
+    tc.globalCompositeOperation='source-over';
+    ctx.drawImage(tmp, 0, 0, W, H);
+
+    _vidRAF = requestAnimationFrame(frame);
+  }
+  _vidRAF = requestAnimationFrame(frame);
+}
+
+// ══ ALPHA DETECTION ══
+function checkAlpha(base64){
+  return new Promise(res=>{
+    const img=new Image();
+    img.onload=()=>{
+      const c=document.createElement('canvas');c.width=Math.min(img.width,64);c.height=Math.min(img.height,64);
+      const ctx=c.getContext('2d');ctx.drawImage(img,0,0,c.width,c.height);
+      const d=ctx.getImageData(0,0,c.width,c.height).data;
+      let has=false;for(let i=3;i<d.length;i+=4){if(d[i]<200){has=true;break;}}res(has);
+    };img.src=base64;
+  });
+}
+let _blockBgVisible = true; // tracked to restore correctly after video mode
+async function updateAlphaBadge(b64){
+  const has=await checkAlpha(b64);
+  const badge=document.getElementById('alpha-badge-base');
+  badge.style.display='block';
+  _blockBgVisible = has;
+  if(has){
+    badge.innerHTML='<span class="alpha-badge yes">✓ Фото с прозрачным фоном</span>';
+    document.getElementById('block-bg').style.display='';
+  } else {
+    badge.innerHTML='<span class="alpha-badge no">Без прозрачного фона</span>';
+    document.getElementById('block-bg').style.display='none';
+  }
+}
+
+// ══ CUSTOM COLOR PICKER POPUP ══
+let _cp={id:null,h:0,s:1,v:1};
+let _cpMode='hex'; // 'hex', 'rgb', 'css'
+
+function hsvToRgb(h,s,v){
+  let r,g,b;const i=Math.floor(h/60)%6,f=h/60-Math.floor(h/60),p=v*(1-s),q=v*(1-f*s),t=v*(1-s*(1-f));
+  [r,g,b]=[[v,t,p],[q,v,p],[p,v,t],[p,q,v],[t,p,v],[v,p,q]][i];
+  return { r:Math.round(r*255), g:Math.round(g*255), b:Math.round(b*255) };
+}
+function rgbToHsv(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  let h = 0;
+  if (d) {
+      if (max === r) h = ((g - b) / d) % 6;
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h = h * 60;
+      if (h < 0) h += 360;
+  }
+  return { h, s: max ? d / max : 0, v: max };
+}
+function hsvToHex(h,s,v){
+  const {r,g,b} = hsvToRgb(h,s,v);
+  return '#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+function hexToHsv(hex){
+  hex=hex.replace('#','');if(hex.length!==6)return{h:0,s:0,v:1};
+  let r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);
+  return rgbToHsv(r, g, b);
+}
+
+function formatColorString(r, g, b) {
+  if (_cpMode === 'rgb') return `${r}, ${g}, ${b}`;
+  if (_cpMode === 'css') return `rgb(${r}, ${g}, ${b})`;
+  return [r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('').toUpperCase();
+}
+
+function parseColorInput(str) {
+  str = str.trim();
+  if (_cpMode === 'hex') {
+    if(str.startsWith('#')) str = str.slice(1);
+    if(str.length === 3) str = str.split('').map(c=>c+c).join('');
+    if(str.length === 6 && /^[0-9A-Fa-f]{6}$/.test(str)) {
+      return hexToHsv('#' + str);
+    }
+  } else if (_cpMode === 'rgb' || _cpMode === 'css') {
+    const match = str.match(/\d{1,3}/g);
+    if (match && match.length >= 3) {
+      let r = parseInt(match[0]), g = parseInt(match[1]), b = parseInt(match[2]);
+      if(r >= 0 && r <= 255 && g >= 0 && g <= 255 && b >= 0 && b <= 255) {
+        return rgbToHsv(r, g, b);
+      }
+    }
+  }
+  return null;
+}
+
+function cpGetHex(){return hsvToHex(_cp.h,_cp.s,_cp.v);}
+function cpUpdateUI(){
+  const hex=cpGetHex();
+  const hueHex=hsvToHex(_cp.h,1,1);
+  document.getElementById('cp-sat').style.background=`linear-gradient(to right,#fff,${hueHex})`;
+  const cx=_cp.s*100,cy=(1-_cp.v)*100;
+  document.getElementById('cp-cursor').style.left=cx+'%';
+  document.getElementById('cp-cursor').style.top=cy+'%';
+  const hp=(_cp.h/360)*100;
+  document.getElementById('cp-hue-thumb').style.left=hp+'%';
+  
+  const inputEl = document.getElementById('cp-color-input');
+  if (document.activeElement !== inputEl) {
+    const {r, g, b} = hsvToRgb(_cp.h, _cp.s, _cp.v);
+    inputEl.value = formatColorString(r, g, b);
+  }
+
+  if(_cp.id){
+    document.getElementById('swatch-'+_cp.id).style.background=hex;
+    document.getElementById('hex-'+_cp.id).value=hex;
+    applyColorToConfig(_cp.id,hex);
+  }
+}
+
+document.getElementById('cp-color-mode').addEventListener('change', function(e) {
+  _cpMode = e.target.value;
+  cpUpdateUI();
+});
+
+
+
+function openColorPicker(id,swatchEl){
+  _cp.id=id;
+  const hex=document.getElementById('hex-'+id).value||'#ffffff';
+  const hsv=hexToHsv(hex);_cp.h=hsv.h;_cp.s=hsv.s;_cp.v=hsv.v;
+  const pop=document.getElementById('cp-popup');pop.classList.add('open');
+  cpUpdateUI();
+  positionPicker(swatchEl);
+}
+function positionPicker(anchor){
+  const pop=document.getElementById('cp-popup');
+  const r=anchor.getBoundingClientRect();
+  let top=r.bottom+6,left=r.left;
+  if(top+270>window.innerHeight)top=r.top-270-6;
+  if(left+230>window.innerWidth)left=window.innerWidth-240;
+  pop.style.top=top+'px';pop.style.left=Math.max(4,left)+'px';
+}
+document.addEventListener('mousedown',e=>{
+  const pop=document.getElementById('cp-popup');
+  if(!pop.contains(e.target)&&!e.target.classList.contains('color-swatch'))pop.classList.remove('open');
+});
+
+// Gradient drag
+(function(){
+  const grad=document.getElementById('cp-gradient');
+  let down=false;
+  function update(e){
+    const r=grad.getBoundingClientRect();
+    _cp.s=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));
+    _cp.v=1-Math.max(0,Math.min(1,(e.clientY-r.top)/r.height));
+    cpUpdateUI();
+  }
+  grad.addEventListener('mousedown',e=>{down=true;update(e);});
+  document.addEventListener('mousemove',e=>{if(down)update(e);});
+  document.addEventListener('mouseup',()=>down=false);
+})();
+
+// Hue bar drag
+(function(){
+  const bar=document.getElementById('cp-hue-bar');
+  let down=false;
+  function update(e){
+    const r=bar.getBoundingClientRect();
+    _cp.h=Math.max(0,Math.min(360,((e.clientX-r.left)/r.width)*360));
+    cpUpdateUI();
+  }
+  bar.addEventListener('mousedown',e=>{down=true;update(e);});
+  document.addEventListener('mousemove',e=>{if(down)update(e);});
+  document.addEventListener('mouseup',()=>down=false);
+})();
+
+// Color input listener in picker
+document.getElementById('cp-color-input').oninput=function(){
+  const hsv = parseColorInput(this.value);
+  if (hsv) {
+    _cp.h = hsv.h; _cp.s = hsv.s; _cp.v = hsv.v;
+    cpUpdateUI();
+  }
+};
+document.getElementById('cp-color-input').onblur=function(){
+  cpUpdateUI(); // Force update formatting on blur
+};
+
+// ══ COLOR SYNC ══
+function syncHex(id,hex){
+  let h=hex.trim();
+  // Expand 3-char HEX (#FFF → #FFFFFF)
+  if(/^#[0-9a-fA-F]{3}$/.test(h)){h='#'+h[1]+h[1]+h[2]+h[2]+h[3]+h[3];}
+  if(!/^#[0-9a-fA-F]{6}$/.test(h))return;
+  document.getElementById('swatch-'+id).style.background=h;
+  applyColorToConfig(id,h);
+}
+function applyColorToConfig(id,hex){
+  if(typeof config==='undefined')return;
+  if(id==='bg-base')config.bgBase=hexToRgb(hex);
+  if(id==='bg-reveal')config.bgReveal=hexToRgb(hex);
+  if(id==='line-color-base')config.lineColorBase=hexToRgb(hex);
+  if(id==='line-color-reveal')config.lineColorReveal=hexToRgb(hex);
+}
+
+// ══ TOGGLE LINES ══
+function toggleLines(el){
+  el.classList.toggle('on');const on=el.classList.contains('on');
+  document.getElementById('lines-settings').classList.toggle('visible',on);
+  if(typeof config!=='undefined'){if(!on){config._savedLT=config.lineThickness;config.lineThickness=0;}else config.lineThickness=config._savedLT||.02;}
+}
+function toggleDepthMode(el){
+  el.classList.toggle('on');const on=el.classList.contains('on');
+  document.getElementById('depth-body').classList.toggle('disabled',!on);
+  if(typeof config!=='undefined'){
+    if(!on){config._savedDepth=config.depthIntensity;config.depthIntensity=0;config.rotX=0;config.rotY=0;setSlider('depth',0);setSlider('rot-x',0);setSlider('rot-y',0);}
+    else{config.depthIntensity=config._savedDepth||.1;config.rotX=-4;config.rotY=4;setSlider('depth',config.depthIntensity);setSlider('rot-x',-4);setSlider('rot-y',4);}
+  }
+}
+function toggleAutoMask(el){
+  el.classList.toggle('on');const on=el.classList.contains('on');
+  document.getElementById('auto-body').classList.toggle('disabled',!on);
+  window._autoMaskEnabled=on;
+  if(typeof isAutoPlaying!=='undefined')isAutoPlaying=on;
+}
+
+// ══ DEFAULTS / RANDOMIZE / RESET ══
+const DEFAULTS={thickness:350,pointCount:300,lerpFactor:.82,lineComplexity:.48,lineScale:1.3,lineSpeed:.08,lineThickness:.02};
+function setSlider(id,v){
+  const el=document.getElementById('input-'+id);
+  if(!el)return;
+  el.value=v;
+  const valEl=document.getElementById('val-'+id);
+  if(valEl)valEl.innerText=v%1===0?v:parseFloat(v).toFixed(2);
+  // Refresh fill — dispatch synthetic input so initSliderFill listener fires
+  el.dispatchEvent(new Event('input'));
+}
+function randomizeBrush(){
+  const t=Math.floor(Math.random()*600+80),pts=Math.floor(Math.random()*450+50),lr=(Math.random()*.45+.52).toFixed(2);
+  setSlider('thickness',t);setSlider('points',pts);setSlider('lerp',parseFloat(lr));
+  if(typeof config!=='undefined'){config.thickness=t;config.pointCount=pts;config.lerpFactor=parseFloat(lr);if(typeof adjustPoints==='function')adjustPoints();}
+}
+function resetBrush(){
+  setSlider('thickness',DEFAULTS.thickness);setSlider('points',DEFAULTS.pointCount);setSlider('lerp',DEFAULTS.lerpFactor);
+  if(typeof config!=='undefined'){config.thickness=DEFAULTS.thickness;config.pointCount=DEFAULTS.pointCount;config.lerpFactor=DEFAULTS.lerpFactor;if(typeof adjustPoints==='function')adjustPoints();}
+}
+function randomizePattern(){
+  const c=(Math.random()).toFixed(2),s=(Math.random()*8+.5).toFixed(1),sp=(Math.random()*.4).toFixed(2),t=(Math.random()*.12+.01).toFixed(2);
+  setSlider('line-complexity',parseFloat(c));setSlider('line-scale',parseFloat(s));setSlider('line-speed',parseFloat(sp));setSlider('line-thickness',parseFloat(t));
+  if(typeof config!=='undefined'){config.lineComplexity=parseFloat(c);config.lineScale=parseFloat(s);config.lineSpeed=parseFloat(sp);config.lineThickness=parseFloat(t);}
+}
+function resetPattern(){
+  setSlider('line-complexity',DEFAULTS.lineComplexity);setSlider('line-scale',DEFAULTS.lineScale);setSlider('line-speed',DEFAULTS.lineSpeed);setSlider('line-thickness',DEFAULTS.lineThickness);
+  if(typeof config!=='undefined'){config.lineComplexity=DEFAULTS.lineComplexity;config.lineScale=DEFAULTS.lineScale;config.lineSpeed=DEFAULTS.lineSpeed;config.lineThickness=DEFAULTS.lineThickness;}
+}
+
+// ══ RECORD (#6: max quality bitrate) ══
+let _isRecording=false,_mediaRecorder=null,_stopTimeout=null,_countInterval=null;
+
+function getBestMimeType(){
+  const types=['video/mp4','video/webm;codecs=h264','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+  for(const t of types){if(MediaRecorder.isTypeSupported(t))return t;}
+  return '';
+}
+
+function handleStartBtn(){
+  if(_isRecording)return;
+  // В видео режиме — захватываем video-canvas, иначе WebGL canvas
+  const vidC = document.getElementById('video-canvas');
+  const isVidMode = window._videoMode && vidC && vidC.style.display==='block';
+  const recordCanvas = isVidMode ? vidC : (typeof canvas!=='undefined' ? canvas : null);
+  if(!recordCanvas) return;
+  _isRecording=true;
+  const btn=document.getElementById('start-btn'),txt=document.getElementById('start-btn-text'),cancelBtn=document.getElementById('cancel-btn');
+  btn.classList.add('recording');cancelBtn.classList.add('visible');
+  const dur=recordDuration;txt.innerText=`Запись... (${dur}с)`;
+  if(!isVidMode){if(typeof window._resetPhotoAutoT==='function')window._resetPhotoAutoT();isAutoPlaying=window._autoMaskEnabled!==false;}
+  if(isVidMode){ window._vidForceAuto=true; }  // стартуем авто-кисть при записи
+  const mimeType=getBestMimeType();
+  const stream=recordCanvas.captureStream(60);
+  const opts={videoBitsPerSecond:40_000_000};
+  if(mimeType)opts.mimeType=mimeType;
+  _mediaRecorder=new MediaRecorder(stream,opts);
+  const chunks=[];
+  _mediaRecorder.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data);};
+  _mediaRecorder.onstop=()=>{
+    if(chunks.length>0){
+      const usedType=_mediaRecorder.mimeType||mimeType||'video/webm';
+      const ext=usedType.includes('mp4')?'mp4':'webm';
+      const blob=new Blob(chunks,{type:usedType});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');a.style.display='none';a.href=url;
+      a.download=`3d-reveal.${ext}`;document.body.appendChild(a);a.click();
+      setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},200);
+    }
+    _isRecording=false;_mediaRecorder=null;
+    btn.classList.remove('recording');cancelBtn.classList.remove('visible');
+    txt.innerText='Начать запись';
+  };
+  _mediaRecorder.start();
+  let t=dur;
+  _countInterval=setInterval(()=>{t--;if(t>0)txt.innerText=`Запись... (${t}с)`;},1000);
+  _stopTimeout=setTimeout(()=>{clearInterval(_countInterval);if(_mediaRecorder&&_mediaRecorder.state!=='inactive')_mediaRecorder.stop();},dur*1000);
+}
+function cancelRecording(){
+  if(!_isRecording||!_mediaRecorder)return;
+  clearInterval(_countInterval);clearTimeout(_stopTimeout);
+  _mediaRecorder.onstop=()=>{
+    _isRecording=false;_mediaRecorder=null;
+    document.getElementById('start-btn').classList.remove('recording');
+    document.getElementById('cancel-btn').classList.remove('visible');
+    document.getElementById('start-btn-text').innerText='Начать запись';
+  };
+  if(_mediaRecorder.state!=='inactive')_mediaRecorder.stop();
+}
+
+// ══ MATRIX MATH ══
+const m4={
+  projection:(fov,asp,n,f)=>{const t=Math.tan(Math.PI*.5-.5*fov),ri=1/(n-f);return[t/asp,0,0,0,0,t,0,0,0,0,(n+f)*ri,-1,0,0,n*f*ri*2,0];},
+  translation:(tx,ty,tz)=>[1,0,0,0,0,1,0,0,0,0,1,0,tx,ty,tz,1],
+  xRotation:a=>{const c=Math.cos(a),s=Math.sin(a);return[1,0,0,0,0,c,s,0,0,-s,c,0,0,0,0,1];},
+  yRotation:a=>{const c=Math.cos(a),s=Math.sin(a);return[c,0,-s,0,0,1,0,0,s,0,c,0,0,0,0,1];},
+  multiply:(a,b)=>{const o=new Float32Array(16);for(let i=0;i<4;i++)for(let j=0;j<4;j++)o[i*4+j]=b[i*4]*a[j]+b[i*4+1]*a[4+j]+b[i*4+2]*a[8+j]+b[i*4+3]*a[12+j];return o;},
+  scale:(m,sx,sy,sz)=>m4.multiply(m,[sx,0,0,0,0,sy,0,0,0,0,sz,0,0,0,0,1])
+};
+function hexToRgb(h){const n=parseInt(h.replace('#',''),16);return[((n>>16)&255)/255,((n>>8)&255)/255,(n&255)/255];}
+
+const config={
+  depthIntensity:.1,modelScale:1.2,rotX:-4,rotY:4,
+  thickness:350,pointCount:300,lerpFactor:.82,fadeSpeed:.025,idleDelay:2000,autoSpeed:1,
+  bgBase:hexToRgb('#ffffff'),bgReveal:hexToRgb('#b3d0a2'),
+  lineColorBase:hexToRgb('#f0f0f0'),lineColorReveal:hexToRgb('#9fc392'),
+  lineScale:1.3,lineSpeed:.08,lineThickness:.02,lineComplexity:.48,trajectory:0
+};
+window._autoMaskEnabled=true;
+
+let originalWidth=1920,originalHeight=1080;
+const loader=document.getElementById('loader'),loaderText=document.getElementById('loader-text');
+
+function fileToBase64(bytes){return new Promise(r=>{const b=new Blob([bytes],{type:'image/png'}),fr=new FileReader();fr.onloadend=()=>r(fr.result);fr.readAsDataURL(b);});}
+
+function drawThumb(id,src){
+  const c=document.getElementById(id),img=new Image();
+  img.onload=()=>{c.width=c.parentElement.offsetWidth||130;c.height=c.parentElement.offsetHeight||97;const ctx=c.getContext('2d'),r=Math.min(c.width/img.width,c.height/img.height),w=img.width*r,h=img.height*r;ctx.clearRect(0,0,c.width,c.height);ctx.drawImage(img,(c.width-w)/2,(c.height-h)/2,w,h);};
+  img.src=src;
+}
+
+window.addEventListener('message',async(event)=>{
+  const msg=event.data?.pluginMessage;
+  if(msg&&msg.type==='init-images'){
+    originalWidth=msg.width;originalHeight=msg.height;
+    loaderText.innerText='ОБРАБОТКА В PYTHON...';
+    try{
+      const b64B=await fileToBase64(msg.baseData),b64R=await fileToBase64(msg.revealData);
+      drawThumb('thumb-base',b64B);drawThumb('thumb-reveal',b64R);
+      updateAlphaBadge(b64B);
+      const _ctrl=new AbortController();const _tid=setTimeout(()=>_ctrl.abort(),90000);
+      const resp=await fetch('http://localhost:5000/api/depth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({base:b64B,reveal:b64R}),signal:_ctrl.signal}).finally(()=>clearTimeout(_tid));
+      if(!resp.ok)throw new Error('srv');
+      const dd=await resp.json();
+      loaderText.innerText='ИНИЦИАЛИЗАЦИЯ 3D...';
+      initWebGL(b64B,b64R,dd.base_depth,dd.reveal_depth);
+    }catch(e){console.error(e);loader.style.display='none';document.getElementById('error-msg').style.display='flex';}
+  }
+});
+
+let canvas,isAutoPlaying=true;
+let gl,baseTex,revTex; // hoisted for video mode access
+// Brush state hoisted so video canvas loop can read them
+let points=[],head={x:0,y:0},revealFactor=0,currentIntensity=1,mouse={nx:0,ny:0,x:0,y:0};
+
+function initWebGL(bBase,bReveal,bDepth,bDepthReveal){
+  canvas=document.getElementById('glcanvas');
+  gl=canvas.getContext('webgl',{preserveDrawingBuffer:true,alpha:true,premultipliedAlpha:false});
+  canvas.width=originalWidth;canvas.height=originalHeight;
+  gl.viewport(0,0,originalWidth,originalHeight);
+  const ext=gl.getExtension('OES_element_index_uint');
+  const mC=document.createElement('canvas'),mX=mC.getContext('2d',{alpha:false});
+  mC.width=originalWidth;mC.height=originalHeight;
+  let mTex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,mTex);
+  ['WRAP_S','WRAP_T'].forEach(p=>gl.texParameteri(gl.TEXTURE_2D,gl['TEXTURE_'+p],gl.CLAMP_TO_EDGE));
+  ['MIN','MAG'].forEach(p=>gl.texParameteri(gl.TEXTURE_2D,gl['TEXTURE_'+p+'_FILTER'],gl.LINEAR));
+
+  const VS=`attribute vec2 a_position;uniform mat4 u_matrix;uniform float u_depthScale;uniform sampler2D u_depthMap;uniform sampler2D u_depthRevealMap;uniform vec2 u_texelSize;varying vec2 v_texCoord;void main(){v_texCoord=a_position;float d1=0.,d2=0.,ws=0.;for(int x=-3;x<=3;x++){for(int y=-3;y<=3;y++){float w=exp(-(float(x*x+y*y))/8.);vec2 uv=v_texCoord+vec2(float(x),float(y))*u_texelSize*2.5;d1+=texture2D(u_depthMap,uv).r*w;d2+=texture2D(u_depthRevealMap,uv).r*w;ws+=w;}}float d=((d1/ws)+(d2/ws))*.5;float z=(d-.5)*u_depthScale;vec4 pos=vec4(a_position.x-.5,a_position.y-.5,z,1.);gl_Position=u_matrix*pos;}`;
+  const FS=`precision mediump float;varying vec2 v_texCoord;uniform sampler2D u_baseMap,u_revealMap,u_maskMap;uniform vec3 u_bgBase,u_bgReveal,u_lineColorBase,u_lineColorReveal;uniform float u_lineScale,u_lineSpeed,u_lineThickness,u_lineComplexity,u_time;uniform vec2 u_resolution;uniform float u_imgAspect;vec3 permute(vec3 x){return mod(((x*34.)+1.)*x,289.);}float snoise(vec2 v){const vec4 C=vec4(.211,.366,-.577,.024);vec2 i=floor(v+dot(v,C.yy)),x0=v-i+dot(i,C.xx);vec2 i1=(x0.x>x0.y)?vec2(1,0):vec2(0,1);vec4 x12=x0.xyxy+C.xxzz;x12.xy-=i1;i=mod(i,289.);vec3 p=permute(permute(i.y+vec3(0,i1.y,1))+i.x+vec3(0,i1.x,1));vec3 m=max(.5-vec3(dot(x0,x0),dot(x12.xy,x12.xy),dot(x12.zw,x12.zw)),0.);m=m*m*m*m;vec3 x2=2.*fract(p*C.www)-1.,h=abs(x2)-.5,ox=floor(x2+.5),a0=x2-ox;m*=1.793-.854*(a0*a0+h*h);vec3 g;g.x=a0.x*x0.x+h.x*x0.y;g.yz=a0.yz*x12.xz+h.yz*x12.yw;return 130.*dot(m,g);}void main(){if(v_texCoord.x<0.||v_texCoord.x>1.||v_texCoord.y<0.||v_texCoord.y>1.){gl_FragColor=vec4(0.);return;}vec2 nuv=v_texCoord;nuv.x*=u_imgAspect;nuv*=u_lineScale;float t=u_time*u_lineSpeed;float n=snoise(nuv+vec2(t,t*.5))*.5+snoise(nuv*2.-vec2(t*.8,-t))*.25;float nf=n*.5+.5,lf=(nuv.x+nuv.y*.5)*.5-t*.2;float field=mix(lf,nf,u_lineComplexity);float c=fract(field*15.),dl=min(c,1.-c);float lFac=1.-smoothstep(0.,u_lineThickness,dl);vec3 blB=mix(u_bgBase,u_lineColorBase,lFac),blR=mix(u_bgReveal,u_lineColorReveal,lFac);vec4 bT=texture2D(u_baseMap,v_texCoord),rT=texture2D(u_revealMap,v_texCoord);float bA=step(.05,bT.a),rA=step(.05,rT.a);vec3 bL=mix(blB,bT.rgb,bA),rL=mix(blR,rT.rgb,rA);vec2 sUV=gl_FragCoord.xy/u_resolution;sUV.y=1.-sUV.y;float mv=texture2D(u_maskMap,sUV).r;gl_FragColor=vec4(mix(bL,rL,mv),1.);}`;
+
+  function mkSh(t,s){const sh=gl.createShader(t);gl.shaderSource(sh,s);gl.compileShader(sh);if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS))console.error('Shader compile error:',gl.getShaderInfoLog(sh));return sh;}
+  const vsH=mkSh(gl.VERTEX_SHADER,VS),fsH=mkSh(gl.FRAGMENT_SHADER,FS);
+  const prog=gl.createProgram();gl.attachShader(prog,vsH);gl.attachShader(prog,fsH);gl.linkProgram(prog);
+  if(!gl.getProgramParameter(prog,gl.LINK_STATUS))console.error('Shader link error:',gl.getProgramInfoLog(prog));
+  const seg=ext?512:255,pos=new Float32Array((seg+1)*(seg+1)*2);
+  let pi=0;for(let y=0;y<=seg;y++)for(let x=0;x<=seg;x++){pos[pi++]=x/seg;pos[pi++]=y/seg;}
+  const idx=ext?new Uint32Array(seg*seg*6):new Uint16Array(seg*seg*6);
+  let ii=0;for(let y=0;y<seg;y++)for(let x=0;x<seg;x++){let i=x+y*(seg+1);idx[ii++]=i;idx[ii++]=i+1;idx[ii++]=i+seg+1;idx[ii++]=i+1;idx[ii++]=i+seg+2;idx[ii++]=i+seg+1;}
+  const pB=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,pB);gl.bufferData(gl.ARRAY_BUFFER,pos,gl.STATIC_DRAW);
+  const iB=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,iB);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,idx,gl.STATIC_DRAW);
+  const gL=n=>gl.getUniformLocation(prog,n);
+  const matL=gL('u_matrix'),dsL=gL('u_depthScale'),tsL=gL('u_texelSize'),rL=gL('u_resolution'),aL=gL('u_imgAspect'),tL=gL('u_time');
+  const bgBL=gL('u_bgBase'),bgRL=gL('u_bgReveal'),lcBL=gL('u_lineColorBase'),lcRL=gL('u_lineColorReveal');
+  const lsL=gL('u_lineScale'),lspL=gL('u_lineSpeed'),ltL=gL('u_lineThickness'),lcpL=gL('u_lineComplexity');
+  const bmL=gL('u_baseMap'),rmL=gL('u_revealMap'),dmL=gL('u_depthMap'),mmL=gL('u_maskMap'),drmL=gL('u_depthRevealMap');
+  const pL=gl.getAttribLocation(prog,'a_position');
+  let baseTex,revTex,depTex,depRevTex,loaded=0;
+  function loadTex(src,id){
+    const tex=gl.createTexture(),img=new Image();
+    img.onload=()=>{
+      gl.bindTexture(gl.TEXTURE_2D,tex);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
+      gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,img);
+      ['WRAP_S','WRAP_T'].forEach(p=>gl.texParameteri(gl.TEXTURE_2D,gl['TEXTURE_'+p],gl.CLAMP_TO_EDGE));
+      ['MIN','MAG'].forEach(p=>gl.texParameteri(gl.TEXTURE_2D,gl['TEXTURE_'+p+'_FILTER'],gl.LINEAR));
+      if(id==='base')baseTex=tex;if(id==='reveal')revTex=tex;
+      if(id==='depth')depTex=tex;if(id==='depthRev')depRevTex=tex;
+      if(++loaded===4){loader.style.opacity='0';setTimeout(()=>loader.style.display='none',500);startEngine();}
+    };
+    img.onerror=()=>{loader.style.display='none';document.getElementById('error-msg').style.display='flex';};
+    img.src=src;
+  }
+  loadTex(bBase,'base');loadTex(bReveal,'reveal');loadTex(bDepth,'depth');loadTex(bDepthReveal,'depthRev');
+
+  mouse={nx:0,ny:0,x:originalWidth/2,y:originalHeight/2};
+  head={x:originalWidth/2,y:originalHeight/2};points=[];
+  let curRX=0,curRY=0,tgtRX=0,tgtRY=0,lastAct=Date.now();
+  revealFactor=0;currentIntensity=1;
+
+  // ══ CONTINUOUS PARAMETRIC TRAJECTORIES ══
+  // t ∈ [0,1) — непрерывный параметр, нет сегментов, нет рывков
+  // Каждая функция: t → {x, y} в нормализованных координатах [0,1]
+
+  const trajFuncs = [
+    // 0: Горизонталь — чистая горизонтальная развёртка, слева→направо→слева
+    // x ping-pong 0→1→0, y почти постоянный с небольшим плавным смещением
+    t => ({
+      x: t < 0.5 ? t * 2 : 2 - t * 2,
+      y: 0.5 + 0.06 * Math.sin(t * Math.PI * 2)
+    }),
+
+    // 1: Волны — синусоида слева направо и обратно
+    t => ({
+      x: t < 0.5 ? t * 2 : 2 - t * 2,
+      y: 0.5 + 0.30 * Math.sin(t * Math.PI * 6)
+    }),
+
+    // 1: Восьмёрка — лемниската Бернулли, строго непрерывная
+    t => {
+      const a = t * Math.PI * 2;
+      const d = 1 + Math.sin(a) * Math.sin(a);
+      return {
+        x: 0.5 + 0.36 * Math.cos(a) / d,
+        y: 0.5 + 0.30 * Math.sin(a) * Math.cos(a) / d
+      };
+    },
+
+    // 2: Зигзаг — треугольная волна
+    t => {
+      const xt = t * 3; // 3 зигзага
+      const xi = xt % 1;
+      return {
+        x: t,
+        y: xi < 0.5 ? 0.18 + xi * 2 * 0.64 : 0.82 - (xi - 0.5) * 2 * 0.64
+      };
+    },
+
+    // 3: Водоворот — архимедова спираль: расширяется и сжимается
+    t => {
+      const fullTurns = 3.0;
+      const angle = t * Math.PI * 2 * fullTurns;
+      // r: 0 → 0.40 за первую половину, 0.40 → 0 за вторую
+      const phase = t < 0.5 ? t * 2 : 1 - (t - 0.5) * 2;
+      const r = 0.40 * phase;
+      return {
+        x: 0.5 + r * Math.cos(angle - Math.PI / 2),
+        y: 0.5 + r * Math.sin(angle - Math.PI / 2)
+      };
+    },
+
+    // 4: Звезда — по контуру 5-конечной звезды, скруглённо
+    t => {
+      const angle = t * Math.PI * 2 - Math.PI / 2;
+      // Радиус колышется между внешним (0.40) и внутренним (0.18) через cos(5θ)
+      const r = 0.29 + 0.115 * Math.cos(angle * 5);
+      return {
+        x: 0.5 + r * Math.cos(angle),
+        y: 0.5 + r * Math.sin(angle)
+      };
+    },
+  ];
+
+  // Период одного полного цикла (мс) — медленнее = плавнее
+  const trajPeriods = [4500, 5000, 4000, 4000, 6000, 4500]; // [горизонт, волны, восьмёрка, зигзаг, водоворот, звезда]
+
+  let _photoAutoT = 0.0; // непрерывный параметр 0→1 (зациклен)
+  window._resetPhotoAutoT = () => { _photoAutoT = 0.0; };
+  function adjustPoints(){while(points.length<config.pointCount)points.push({x:head.x,y:head.y});if(points.length>config.pointCount)points.length=config.pointCount;}
+  window.adjustPoints=adjustPoints;adjustPoints();
+
+  window.addEventListener('mousemove',e=>{
+    // В видео режиме координаты обрабатывает onVidMouse на самом канвасе
+    if(window._videoMode) return;
+    const canv = document.getElementById('glcanvas');
+    if(!canv) return;
+    const r=canv.getBoundingClientRect();
+    if(!r.width||!r.height) return;
+    lastAct=Date.now();isAutoPlaying=false;currentIntensity=1;
+    const cx=e.clientX-r.left, cy=e.clientY-r.top;
+    const nx=cx/r.width, ny=cy/r.height;
+    mouse.nx=nx*2-1; mouse.ny=ny*2-1;
+    mouse.x=nx*originalWidth; mouse.y=ny*originalHeight;
+    tgtRY=mouse.nx*(config.rotY*Math.PI/180);
+    tgtRX=mouse.ny*(config.rotX*Math.PI/180);
+  });
+
+  const _autoSpeedEl=document.getElementById('input-auto-speed');if(_autoSpeedEl){_autoSpeedEl.oninput=e=>{let v=parseFloat(e.target.value);config.autoSpeed=v;document.getElementById('val-auto-speed').innerText=v.toFixed(1);};initSliderFill(_autoSpeedEl);}
+  // ── Slider fill init ──
+  function initSliderFill(el){
+    el.classList.add('has-fill');
+    function update(){
+      const min=parseFloat(el.min)||0,max=parseFloat(el.max)||1,val=parseFloat(el.value)||0;
+      const ratio=(val-min)/(max-min);
+      // Compensate for thumb half-width (thumb=15px, so ~7.5px each side)
+      // fill_css = ratio * (100% - thumbW) + thumbHalf
+      // where thumbW ≈ 15px / trackWidth. We approximate with calc:
+      const pct=`calc(${(ratio*100).toFixed(2)}% - ${(ratio*15-7.5).toFixed(1)}px)`;
+      el.style.setProperty('--fill',pct);
+    }
+    update();
+    el.addEventListener('input',update);
+  }
+  document.querySelectorAll('input[type="range"]').forEach(initSliderFill);
+
+    ['depth','model-scale','rot-x','rot-y','thickness','points','lerp','line-scale','line-speed','line-thickness','line-complexity'].forEach(id=>{
+    const el=document.getElementById('input-'+id);if(!el)return;
+    el.oninput=e=>{let v=parseFloat(e.target.value);
+      if(id==='depth')config.depthIntensity=v;if(id==='model-scale')config.modelScale=v;
+      if(id==='rot-x')config.rotX=v;if(id==='rot-y')config.rotY=v;
+      if(id==='thickness')config.thickness=v;if(id==='points'){config.pointCount=Math.floor(v);adjustPoints();}
+      if(id==='lerp')config.lerpFactor=v;if(id==='line-scale')config.lineScale=v;
+      if(id==='line-speed')config.lineSpeed=v;if(id==='line-thickness')config.lineThickness=v;
+      if(id==='line-complexity')config.lineComplexity=v;
+      document.getElementById('val-'+id).innerText=v%1===0?v:v.toFixed(2);
+    };
+  });
+
+  function startEngine(){
+    // Apply initial zoom (85%) now that canvas exists
+    (function(){const cv=document.getElementById('glcanvas');if(cv){cv.style.transform='scale('+_zoom+')';cv.style.transformOrigin='center center';}})();
+    window._photoFrameActive = true;
+    let lastT=performance.now();
+    function render(){
+      if(!window._photoFrameActive) return;
+      const now=performance.now(),dt=now-lastT;lastT=now;
+      const autoON=window._autoMaskEnabled!==false;
+      if(!isAutoPlaying){
+        if(autoON&&Date.now()-lastAct>config.idleDelay){isAutoPlaying=true;_photoAutoT=0;}
+        else{if(Date.now()-lastAct<200)revealFactor=Math.min(1,revealFactor+.15);else revealFactor=Math.max(0,revealFactor-config.fadeSpeed);}
+      }
+      if(isAutoPlaying&&autoON){
+        // Непрерывный параметр — плавно нарастает, нет разрывов между сегментами
+        const period = trajPeriods[config.trajectory];
+        _photoAutoT = (_photoAutoT + (dt * config.autoSpeed) / period) % 1.0;
+        const pos = trajFuncs[config.trajectory](_photoAutoT);
+        // Плавное ограничение выхода за пределы canvas
+        mouse.x = Math.max(0, Math.min(1, pos.x)) * originalWidth;
+        mouse.y = Math.max(0, Math.min(1, pos.y)) * originalHeight;
+        mouse.nx = pos.x * 2 - 1;
+        mouse.ny = pos.y * 2 - 1;
+        tgtRY = mouse.nx * (config.rotY * Math.PI / 180);
+        tgtRX = mouse.ny * (config.rotX * Math.PI / 180);
+        currentIntensity = 1.25;
+        revealFactor = 1.0; // всегда активен, без сброса между сегментами
+      }
+      head.x=mouse.x;head.y=mouse.y;
+      if(points.length>0){
+        points[0].x=head.x;points[0].y=head.y;
+        for(let i=1;i<points.length;i++){points[i].x+=(points[i-1].x-points[i].x)*config.lerpFactor;points[i].y+=(points[i-1].y-points[i].y)*config.lerpFactor;}
+      }
+      mX.fillStyle='#000';mX.fillRect(0,0,originalWidth,originalHeight);
+      if(revealFactor>.001){
+        mX.strokeStyle='#fff';mX.lineCap='round';mX.lineJoin='round';
+        for(let i=0;i<points.length-1;i++){const w=config.thickness*currentIntensity*(1-(i/points.length)*.98)*revealFactor;if(w>.5){mX.beginPath();mX.moveTo(points[i].x,points[i].y);mX.lineTo(points[i+1].x,points[i+1].y);mX.lineWidth=w;mX.stroke();}}
+        const hr=(config.thickness/2)*currentIntensity*revealFactor;if(hr>.5){mX.beginPath();mX.arc(points[0].x,points[0].y,hr,0,Math.PI*2);mX.fillStyle='#fff';mX.fill();}
+      }
+      gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,mTex);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,mC);
+      curRX+=(tgtRX-curRX)*.08;curRY+=(tgtRY-curRY)*.08;
+      gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.useProgram(prog);
+      const asp=canvas.width/canvas.height,fov=Math.PI/4,cz=2.5;
+      let mx=m4.projection(fov,asp,.1,100);mx=m4.multiply(mx,m4.translation(0,0,-cz));mx=m4.multiply(mx,m4.xRotation(curRX));mx=m4.multiply(mx,m4.yRotation(curRY));
+      const ia=originalWidth/originalHeight,vh=2*cz*Math.tan(fov/2),vw=vh*asp,sc=Math.max(vw/ia,vh)*config.modelScale;
+      mx=m4.scale(mx,ia*sc,sc,1);gl.uniformMatrix4fv(matL,false,mx);
+      gl.uniform2f(tsL,1/originalWidth,1/originalHeight);gl.uniform1f(dsL,2.5*config.depthIntensity);gl.uniform2f(rL,canvas.width,canvas.height);gl.uniform1f(aL,ia);
+      gl.uniform3f(bgBL,...config.bgBase);gl.uniform3f(bgRL,...config.bgReveal);
+      gl.uniform3f(lcBL,...config.lineColorBase);gl.uniform3f(lcRL,...config.lineColorReveal);
+      gl.uniform1f(lsL,config.lineScale);gl.uniform1f(lspL,config.lineSpeed);
+      gl.uniform1f(ltL,config.lineThickness);gl.uniform1f(lcpL,config.lineComplexity);
+      gl.uniform1f(tL,now*.001);
+      gl.uniform1i(bmL,0);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,baseTex);
+      gl.uniform1i(rmL,1);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,revTex);
+      gl.uniform1i(dmL,2);gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,depTex);
+      gl.uniform1i(mmL,3);
+      gl.uniform1i(drmL,4);gl.activeTexture(gl.TEXTURE4);gl.bindTexture(gl.TEXTURE_2D,depRevTex);
+      gl.bindBuffer(gl.ARRAY_BUFFER,pB);gl.enableVertexAttribArray(pL);gl.vertexAttribPointer(pL,2,gl.FLOAT,false,0,0);
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,iB);
+      ext?gl.drawElements(gl.TRIANGLES,idx.length,gl.UNSIGNED_INT,0):gl.drawElements(gl.TRIANGLES,idx.length,gl.UNSIGNED_SHORT,0);
+      requestAnimationFrame(render);
+    }
+    render();
+    window._restartPhotoRender = () => { if(!window._photoFrameActive){window._photoFrameActive=true;requestAnimationFrame(render);} };
+  }
+}
+
+// ══ РАЗМЕР ОКНА ══
+// Отправляем 90% доступного экрана как только DOM готов.
+// code.ts обрабатывает это через figma.ui.resize().
+(function(){
+  function sendSize(){
+    try{
+      const W = Math.min(Math.round((screen.availWidth||screen.width)*0.97), 2560);
+      const H = Math.min(Math.round((screen.availHeight||screen.height)*0.95), 1440);
+      parent.postMessage({pluginMessage:{type:'resize',width:W,height:H}},'*');
+    }catch(e){}
+  }
+  // Отправляем сразу и ещё раз через 100ms (на случай задержки Figma)
+  sendSize();
+  setTimeout(sendSize, 100);
+  window._pluginSendSize = sendSize;
+})();
+</script>
+</body>
+</html>

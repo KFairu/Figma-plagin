@@ -1,0 +1,37 @@
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+server.log
+
+# Model cache (downloaded on first run, large)
+# Uncomment to exclude from repo:
+# ~/.cache/huggingface/
+
+# Node (not needed in release)
+node_modules/
+
+# Dev assets (not part of plugin)
+base.png
+reveal*.png
+cursor-mask-demo.html
