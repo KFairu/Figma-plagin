@@ -45,11 +45,11 @@
 #### Step 1: Download the Plugin
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/3d-reveal-pro.git
+git clone https://github.com/KFairu/Figma-plagin.git
 cd 3d-reveal-pro
 ```
 
-Or download the ZIP from the [Releases page](../../releases) and unzip it.
+Or download the ZIP and unzip it.
 
 #### Step 2: Install the Server Dependencies
 
