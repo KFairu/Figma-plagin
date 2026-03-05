@@ -49,7 +49,7 @@ git clone https://github.com/KFairu/Figma-plagin.git
 cd 3d-reveal-pro
 ```
 
-Or download the ZIP and unzip it.
+Or download the ZIP https://github.com/KFairu/Figma-plagin/releases and unzip it.
 
 #### Step 2: Install the Server Dependencies
 
@@ -96,10 +96,10 @@ The first launch also downloads the depth model (~200 MB).
 
 #### Step 1: Download the Plugin
 
-Download the ZIP from the [Releases page](../../releases) and unzip it,
+Download the ZIP from the https://github.com/KFairu/Figma-plagin/releases and unzip it,
 or use Git Bash:
 ```bash
-git clone https://github.com/YOUR_USERNAME/3d-reveal-pro.git
+git clone https://github.com/KFairu/Figma-plagin.git
 ```
 
 #### Step 2: Install Python (if not installed)
@@ -208,11 +208,11 @@ Wait for:
 #### Шаг 1: Скачайте репозиторий
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/3d-reveal-pro.git
+git clone https://github.com/KFairu/Figma-plagin.git
 cd 3d-reveal-pro
 ```
 
-Или скачайте ZIP со страницы [Releases](../../releases) и распакуйте.
+Или скачайте ZIP со страницы https://github.com/KFairu/Figma-plagin/releases и распакуйте.
 
 #### Шаг 2: Установите зависимости сервера
 
@@ -259,10 +259,10 @@ bash start-server-mac.sh
 
 #### Шаг 1: Скачайте репозиторий
 
-Скачайте ZIP со страницы [Releases](../../releases) и распакуйте,
+Скачайте ZIP со страницы https://github.com/KFairu/Figma-plagin/releases и распакуйте,
 или используйте Git Bash:
 ```bash
-git clone https://github.com/YOUR_USERNAME/3d-reveal-pro.git
+git clone https://github.com/KFairu/Figma-plagin.git
 ```
 
 #### Шаг 2: Установите Python (если не установлен)
